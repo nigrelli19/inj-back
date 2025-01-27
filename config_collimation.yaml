@@ -1,0 +1,49 @@
+---
+input:
+  #machine: 'fccee'
+  xtrack_line: 'lines_&_coll/FCCee_z_common_LSSs_TCS.json'
+  collimator_file: 'lines_&_coll/CollDB_FCCee_z_common_LSSs_TCS.json'
+  bdsim_config: 'settings.gmad'
+
+beam:
+  particle: 'electron'
+  #momentum: 45.6e9 # eV
+  #emittance:
+  #  x: 6.335825151891213e-05 
+  #  y: 1.6955025054356766e-07 
+
+dist:
+  #start_element: 'drift_41038' # TO TEST DA, STARTING THE BEAM WHERE ALPHA IS ZERO 
+  start_element: 'drift_5508' #
+  sigma_z: 5.6e-3 #0.009 #0 # m 
+
+lossmap:
+  #make_lossmap: True
+  weights: 'energy'
+  #norm: 'total'
+  seed: 1993
+  aperture_interp: 0.03
+  aperture_binwidth: 10 # m
+
+run:
+  #radiation: 'mean'
+  #compensate_sr_energy_loss: True
+  #sr_compensation_delta: 0.00010839358763518439
+  #energy_cut: 0.165
+  #batch_mode: True
+  turns: 40
+  nparticles: 100 # 5000
+  #outputfile: 'part.hdf'
+   # m
+  max_particles: 500 # 10000 #10e3
+  output_dir : 'test'
+
+jobsubmission:
+  working_directory: 'plots'
+  num_jobs: 100
+  run_local: False
+  dryrun: False
+  job_output_dir: 'plots'
+  jobflavour: 'workday' # 'tomorrow'
+  htc_arguments: {'accounting_group': 'group_u_BE.ABP.normal', 'notification': 'never'}
+  mask: 'mask_xtrack_collimation.sh'
