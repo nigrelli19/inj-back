@@ -1,0 +1,199 @@
+{
+    "families": {
+      "tcpmom": {
+        "gap": 23,
+        "stage": "primary",
+        "material": "MoGR",
+        "length": 0.25,
+        "angle": 0
+      },
+      "tcsmom": {
+        "gap": 24,
+        "stage": "secondary",
+        "material": "Mo",
+        "length": 0.30,
+        "angle": 0
+      },
+      "tcphbet": {
+        "gap": 11,
+        "stage": "primary",
+        "material": "MoGR",
+        "length": 0.25,
+        "angle": 0
+      },
+      "tcshbet": {
+        "gap": 12,
+        "stage": "secondary",
+        "material": "Mo",
+        "length": 0.30,
+        "angle": 0
+      },
+      "tcpvbet": {
+        "gap": 65,
+        "stage": "primary",
+        "material": "MoGR",
+        "length": 0.25,
+        "angle": 90
+      },
+      "tcsvbet": {
+        "gap": 75,
+        "stage": "secondary",
+        "material": "Mo",
+        "length": 0.30,
+        "angle": 90
+      },
+      "tcth": {
+        "gap": 13,
+        "stage": "tertiary",
+        "material": "MoGR",
+        "length": 0.25,
+        "angle": 0
+      },
+      "tctv": {
+        "gap": 80,
+        "stage": "tertiary",
+        "material": "MoGR",
+        "length": 0.25,
+        "angle": 90
+      },
+      "tcrh": {
+        "gap": 14,
+        "stage": "synchrotron",
+        "material": "Iner",
+        "length": 0.1,
+        "angle": 0
+      },
+      "tcrv": {
+        "gap": 82,
+        "stage": "synchrotron",
+        "material": "Iner",
+        "length": 0.1,
+        "angle": 90
+      }
+    },
+    "Collimators": {
+        "tcp.h.b1": {
+            "family": "tcphbet"
+        },
+        "tcp.v.b1": {
+            "family": "tcpvbet"
+        },
+        "tcs.h1.b1": {
+            "family": "tcshbet"
+        },
+        "tcs.h2.b1": {
+            "family": "tcshbet"
+        },
+        "tcs.v1.b1": {
+            "family": "tcsvbet"
+        },
+        "tcs.v2.b1": {
+            "family": "tcsvbet"
+        },
+        "tcp.hp.b1": {
+            "family": "tcpmom"
+        },
+        "tcs.hp1.b1": {
+            "family": "tcsmom"
+        },
+        "tcs.hp2.b1": {
+            "family": "tcsmom"
+        },
+        "tct.h.2.b1": {
+            "family": "tcth"
+        },
+        "tct.v.2.b1": {
+            "family": "tctv"
+        },
+        "tcr.h.wl.2.b1": {
+            "family": "tcrh"
+        },
+        "tcr.v.c0.2.b1": {
+            "family": "tcrv"
+        },
+        "tcr.h.c0.2.b1": {
+            "family": "tcrh"
+        },
+        "tcr.h2.c0.2.b1": {
+            "family": "tcrh"
+        },
+        "tcr.v.c2.2.b1": {
+            "family": "tcrv"
+        },
+        "tcr.h.c2.2.b1": {
+            "family": "tcrh"
+        },
+        "tct.h.3.b1": {
+            "family": "tcth"
+        },
+        "tct.v.3.b1": {
+            "family": "tctv"
+        },
+        "tcr.h.wl.3.b1": {
+            "family": "tcrh"
+        },
+        "tcr.v.c0.3.b1": {
+            "family": "tcrv"
+        },
+        "tcr.h.c0.3.b1": {
+            "family": "tcrh"
+        },
+        "tcr.h2.c0.3.b1": {
+            "family": "tcrh"
+        },
+        "tcr.v.c2.3.b1": {
+            "family": "tcrv"
+        },
+        "tcr.h.c2.3.b1": {
+            "family": "tcrh"
+        },
+        "tct.h.4.b1": {
+            "family": "tcth"
+        },
+        "tct.v.4.b1": {
+            "family": "tctv"
+        },
+        "tcr.h.wl.4.b1": {
+            "family": "tcrh"
+        },
+        "tcr.v.c0.4.b1": {
+            "family": "tcrv"
+        },
+        "tcr.h.c0.4.b1": {
+            "family": "tcrh"
+        },
+        "tcr.h2.c0.4.b1": {
+            "family": "tcrh"
+        },
+        "tcr.v.c2.4.b1": {
+            "family": "tcrv"
+        },
+        "tcr.h.c2.4.b1": {
+            "family": "tcrh"
+        },
+        "tct.h.1.b1": {
+            "family": "tcth"
+        },
+        "tct.v.1.b1": {
+            "family": "tctv"
+        },
+        "tcr.h.wl.1.b1": {
+            "family": "tcrh"
+        },
+        "tcr.v.c0.1.b1": {
+            "family": "tcrv"
+        },
+        "tcr.h.c0.1.b1": {
+            "family": "tcrh"
+        },
+        "tcr.h2.c0.1.b1": {
+            "family": "tcrh"
+        },
+        "tcr.v.c2.1.b1": {
+            "family": "tcrv"
+        },
+        "tcr.h.c2.1.b1": {
+            "family": "tcrh"
+        }
+    }
+}

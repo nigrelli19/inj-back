@@ -2,11 +2,9 @@
 
 /plot*/
 /test*/
-/line*/
 
 # Not pushing big files
 
-Plots_risetime.ipynb
 inspect_output.ipynb
 test.ipynb
 

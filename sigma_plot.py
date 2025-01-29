@@ -69,8 +69,8 @@ def normalized_coordiantes(twiss, track_particle, monitor_name = '0'):
 
 output_dir = 'test' #'test_DA_1'
 #df_part = pd.read_hdf(os.path.join(output_dir,"part.hdf"), key = "particles")
-#merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_inject.h5'))
-merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_prim_coll.h5'))
+merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_inject.h5'))
+#merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_prim_coll.h5'))
 
 num_particles = int(len(merged_data['x']))
 num_turns = int(len(merged_data['x'].T))
@@ -86,7 +86,7 @@ X_norm, Y_norm, Px_norm, Py_norm = normalized_coordiantes(twiss, merged_data, 'd
 
 #print(X)
 turns = range(0,num_turns)  
-turns = range(0, 40)
+turns = range(0, 20)
 #turns = [0, 25, 50, 75, 100, 125, 150, 175, 199] #250,  300, 350,  400, 450, 490]
 # Set up the figure
 fig, ax = plt.subplots(figsize=(6, 6))
@@ -96,8 +96,8 @@ ax.set_ylim(-2, 2)
 ax.set_xlabel(r'x [mm]')
 ax.set_ylabel(r'y [mm]')
 
-ax.set_xlim(-35, 35)
-ax.set_ylim(-35, 35)
+ax.set_xlim(-25, 25)
+ax.set_ylim(-25, 25)
 ax.set_xlabel(r'y [$\sigma$]')
 ax.set_ylabel(r'py [$\sigma$]')
 #ax.set_xlabel(r'x [$\sigma$]')

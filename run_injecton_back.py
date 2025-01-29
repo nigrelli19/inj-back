@@ -34,11 +34,13 @@ FCC_ARCS = np.array([
     [57679,   67295.6], [68695.6, 78312.2], 
     [80344.2, 89960.8], [700,     10316.6]])
 
-EMITT_X = 6.335825151891213e-05 # Normalized emittance gemitt*gamma*beta 
-EMITT_Y = 1.6955025054356766e-07 
+# IMPLEMENT PARAMETERD FROM REFERNCE JSON FILE ON GITLAB
 
-GEMIT_X = 0.71e-9
-GEMIT_Y = 1.9e-12
+#EMITT_X = 6.335825151891213e-05 # Normalized emittance gemitt*gamma*beta 
+#EMITT_Y = 1.6955025054356766e-07 
+
+#GEMIT_X = 0.71e-9
+#GEMIT_Y = 1.9e-12
 
 ParticleInfo = namedtuple('ParticleInfo', ['name', 'pdgid', 'mass', 'A', 'Z','charge'])
 
@@ -53,16 +55,44 @@ def get_particle_info(particle_name):
     mass = xp.pdg.get_mass_from_pdg_id(pdg_id)
     return ParticleInfo(particle_name, pdg_id, mass, A, Z, charge)
 
-def prepare_matched_beam(twiss, line, ref_particle, dist_config, num_particles, capacity):
+def prepare_injected_beam(twiss, line, ref_particle, injection_config, num_particles, capacity):
     
-    start_element = dist_config['start_element']+'..0'
-    print(f'Preparing a matched Gaussian beam at {start_element}')
-    sigma_z = dist_config['sigma_z']
+    start_element = injection_config['start_element']#+'..0'
+    print(f'Preparing beam coming from booster to be injected at {start_element}')
 
     line.build_tracker()
 
-    x_norm, px_norm = xp.generate_2D_gaussian(num_particles)
-    y_norm, py_norm = xp.generate_2D_gaussian(num_particles)
+    inj_seed_x = injection_config['seed_x']
+    inj_seed_y = injection_config['seed_y']
+    inj_seed_z = injection_config['seed_z']
+    ## define energy offset of injected 
+    energy_offset_injection = injection_config['energy_offset']
+    ## define horizontal offset of injected 
+    x_offset_injection = injection_config['x_offset'] # #m
+    ## define energy spread of beam extracted from booster
+    energy_spread_injection = injection_config['energy_spread']
+    ## define bunch leangth of beam extracted from booster
+    bunch_length_injection = injection_config['bunch_length'] #m
+    ## define injected emittances (keep the ration of the collider reference paramiters)
+    emittance_x_injection = injection_config['emittance_x_injection']#m
+    emittance_y_injection = injection_config['emittance_y_injection'] #m #emittance_x_injection*emittance_y/emittance_x #m
+    
+    beta_relativistic = ref_particle.beta0
+    gamma_relativistic = ref_particle.gamma0
+    
+    normalized_emittance_x_injection = emittance_x_injection*gamma_relativistic*beta_relativistic #m
+    normalized_emittance_y_injection = emittance_y_injection*gamma_relativistic*beta_relativistic #m
+
+    # Horizontal and vertical plane: generate gaussian distribution in normalized coordinates
+    np.random.seed(inj_seed_x)
+    x_in_sigmas, px_in_sigmas = xp.generate_2D_gaussian(num_particles)
+    np.random.seed(inj_seed_y)
+    y_in_sigmas, py_in_sigmas = xp.generate_2D_gaussian(num_particles)
+    # Longitudinal plane: generate gaussian distribution 
+    np.random.seed(inj_seed_z)
+    zeta_in_sigmas, delta_in_sigmas = xp.generate_2D_gaussian(num_particles)
+    zeta = zeta_in_sigmas*bunch_length_injection
+    delta = delta_in_sigmas*energy_spread_injection+energy_offset_injection
     
     # The longitudinal closed orbit needs to be manually supplied for now
     element_index = line.element_names.index(start_element)
@@ -73,39 +103,27 @@ def prepare_matched_beam(twiss, line, ref_particle, dist_config, num_particles, 
         zeta_co = twiss.zeta[element_index] 
         delta_co = twiss.delta[element_index] 
 
-    assert sigma_z >= 0
-    zeta = delta = 0
-    if sigma_z > 0:
-        print(f'Paramter sigma_z > 0, preparing a longitudinal distribution matched to the RF bucket')
-        zeta, delta = xp.generate_longitudinal_coordinates(
-                        line=line,
-                        num_particles=num_particles, distribution='gaussian',
-                        sigma_z=sigma_z, particle_ref=ref_particle)
-
+    # Build particles:
     part = line.build_particles(
         _capacity=capacity,
-        particle_ref=ref_particle,
-        x_norm=x_norm, px_norm=px_norm,
-        y_norm=y_norm, py_norm=py_norm,
-        zeta=zeta + zeta_co,
-        delta=delta + delta_co,
-        nemitt_x=EMITT_X,
-        nemitt_y=EMITT_Y,
-        at_element=start_element,
-        )
+        zeta=zeta+zeta_co, delta=delta+delta_co,
+        x_norm=x_in_sigmas, px_norm=px_in_sigmas,
+        y_norm=y_in_sigmas, py_norm=py_in_sigmas,
+        nemitt_x=normalized_emittance_x_injection, nemitt_y=normalized_emittance_y_injection,  
+        at_element=start_element)
+    
+    part.start_tracking_at_element = -1
+    part.x = part.x + x_offset_injection
 
     return part
 
-def install_collimators(line, input_config, lossmap_config):
+def install_collimators(line, input_config, nemitt):
 
     line.discard_tracker()
-    '''colldb = xc.CollimatorDatabase.from_SixTrack(input_config['collimator_file'],
-                                                nemitt_x=EMITT_X,
-                                                nemitt_y=EMITT_Y)'''
     
     colldb = xc.CollimatorDatabase.from_json(input_config['collimator_file'],
-                                                nemitt_x=EMITT_X,
-                                                nemitt_y=EMITT_Y)
+                                                nemitt_x=nemitt[0],
+                                                nemitt_y=nemitt[1])
     
     colldb.install_geant4_collimators(verbose=True,
                                       line=line)
@@ -115,7 +133,7 @@ def install_collimators(line, input_config, lossmap_config):
     twiss = line.twiss(method='6d')
 
     line.build_tracker()
-    line.collimators.assign_optics(nemitt_x=EMITT_X, nemitt_y=EMITT_Y, twiss=twiss)
+    line.collimators.assign_optics(nemitt_x=nemitt[0], nemitt_y=nemitt[1], twiss=twiss)
     #xc.assign_optics_to_collimators(line=line, twiss=twiss)
     line.discard_tracker()
 
@@ -138,7 +156,7 @@ def install_collimators(line, input_config, lossmap_config):
 
     return twiss
 
-def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor_names, lossmap_config, output_dir="plots", impact=False):
+def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor_names, lossmap_config, start_element, output_dir="plots", impact=False):
 
     if impact:
         impacts = xc.InteractionRecord.start(line=line)
@@ -152,11 +170,11 @@ def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor
 
     # Track (saving turn-by-turn data)
     for turn in range(num_turns):
-        print(f'Start turn {turn}, Survivng particles: {particles._num_active_particles}')
-        if turn == 0 and particles.start_tracking_at_element < 0:
-            line.track(particles, num_turns=1)
-        else:
-            line.track(particles, num_turns=1)          
+        #print(f'Start turn {turn}, Survivng particles: {particles._num_active_particles}')
+        #if turn == 0 and particles.start_tracking_at_element < 0:
+        #    line.track(particles, num_turns=1)
+        #else:
+        line.track(particles, num_turns=1, ele_start=start_element, ele_stop=start_element)          
             
         if particles._num_active_particles == 0:
             print(f'All particles lost by turn {turn}, teminating.')
@@ -216,10 +234,10 @@ def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor
 def insert_monitors(num_turns, rad_line, twiss, num_particles, start_element):
     """
     Inserts monitors at specific locations in the line:
-    - At the first kicker position.
     - At the syncrhtron mask position tcr.h.c3.2.b1
     - At the primary collimator tcp.h.b1
     - At the experimental insertion IPG.
+    - At the 'injection' loation. 
     """
     # Define monitor, for now just one particle
     monitor = xt.ParticlesMonitor(start_at_turn=0, stop_at_turn =num_turns, num_particles = num_particles, auto_to_numpy=True)
@@ -263,7 +281,9 @@ def save_track_to_h5(monitor, num_turns, monitor_name='0', output_dir="plots", t
         'px': monitor.px,
         'y': monitor.y,
         'py': monitor.py,
-        'at_turn': monitor.at_turn,
+        'zeta' : monitor.zeta,
+        'delta' : monitor.delta,
+        'at_turn': monitor.at_turn
         #'at_element': monitor.at_element
     }
     
@@ -285,6 +305,8 @@ def save_track_to_h5(monitor, num_turns, monitor_name='0', output_dir="plots", t
             h5f.create_dataset('px', data=filtered_data['px'].astype(np.float32), compression='gzip')
             h5f.create_dataset('y', data=filtered_data['y'].astype(np.float32), compression='gzip')
             h5f.create_dataset('py', data=filtered_data['py'].astype(np.float32), compression='gzip')
+            h5f.create_dataset('zeta', data=filtered_data['zeta'].astype(np.float32), compression='gzip')
+            h5f.create_dataset('delta', data=filtered_data['delta'].astype(np.float32), compression='gzip')
             h5f.create_dataset('at_turn', data=filtered_data['at_turn'].astype(np.int32), compression='gzip')
             #h5f.create_dataset('at_element', data=filtered_data['at_element'].astype(h5py.string_dtype(encoding='utf-8')), compression='gzip')
 
@@ -598,9 +620,9 @@ def main(config_file, submit, merge):
 
     input_config = config_dict['input']
     beam_config = config_dict['beam']
-    dist_config = config_dict['dist']
     run_config = config_dict['run']
     lossmap_config = config_dict['lossmap']
+    injection_config = config_dict['injection']
     #job_config = config_dict['jobsubmission']
 
     output_dir = run_config['output_dir']
@@ -618,7 +640,14 @@ def main(config_file, submit, merge):
     else:
         os.makedirs(output_dir, exist_ok=True)
 
-        
+        # DEFINE REFERENCE PARAMETERES FROM FILE 
+
+        with open(input_config['reference_parameters'], 'r') as file:
+            REF_PAR = json.load(file)
+
+        GEMIT_X = REF_PAR["z"]["EMITTANCE_X"]
+        GEMIT_Y = REF_PAR["z"]["EMITTANCE_Y"]
+
         # Define paths for to JSON files for LINE, TWISS and LOSSMAP
         SR_coll_line = os.path.join(output_dir, 'SR_coll_line.json')
         twiss_file_path = os.path.join(output_dir, f'twiss_params.json')
@@ -637,7 +666,7 @@ def main(config_file, submit, merge):
         
         beta0 = ref_part.beta0
         gamma0 = ref_part.gamma0
-        gemitt = np.array([EMITT_X / (beta0 * gamma0),EMITT_Y / (beta0 * gamma0)])
+        nemitt = np.array([GEMIT_X * (beta0 * gamma0),GEMIT_Y * (beta0 * gamma0)])
         
         if os.path.exists(SR_coll_line):
             rad_line = xt.Line.from_json(SR_coll_line)
@@ -652,28 +681,26 @@ def main(config_file, submit, merge):
         else:
             xtrack_line = input_config['xtrack_line']
             rad_line, twiss_rad = initialize_optics_and_calculate_twiss(xtrack_line, num_turns, twiss_file_path)
-            # Uncomment to save the line after processing, does not work properly if you want touse it later to install collimators
+            # Uncomment to save the line after processing, does not work properly if you want to use it later to install collimators
             rad_line.to_json(SR_coll_line)
 
         # Insert monitors
-        start_element = dist_config['start_element']
+        start_element = injection_config['start_element']
         monitor_names = insert_monitors(num_turns, rad_line, twiss_rad, num_particles, start_element)
         
         if os.path.exists(lossmap_json):
             #plot_lossmap(lossmap_json, bin_w, output_dir)
-            twiss_rad = rad_line.twiss(method='6d')
+            print('Done!')
         else:
             # Install collimators
-            twiss_rad = install_collimators(rad_line, input_config, lossmap_config)
-            # Prepare gaussian beam matched to RF bucket 
-            particles = prepare_matched_beam(twiss_rad, rad_line, ref_part, dist_config, num_particles, capacity)
-            
-            # HALO BEAM UP T0 20 SIGMA IN VERTICAL
-            #particles = prepare_halo_beam(twiss_rad, rad_line, ref_part, dist_config, num_particles, capacity)
-            
-            lossmap_json = generate_lossmap(rad_line, num_turns, particles, ref_part, input_config, monitor_names, lossmap_config, output_dir, impact=True)
-            #plot_lossmap(lossmap_json, bin_w, output_dir)
+            twiss_rad = install_collimators(rad_line, input_config, nemitt)
 
+            # Prepare beam injected from booster
+            particles = prepare_injected_beam(twiss_rad, rad_line, ref_part,injection_config, num_particles, capacity)
+            
+            lossmap_json = generate_lossmap(rad_line, num_turns, particles, ref_part, input_config, monitor_names, lossmap_config, start_element, output_dir, impact=False)
+            
+            print('Done!')
     
 if __name__ == "__main__":
     # Setup command-line argument parser
