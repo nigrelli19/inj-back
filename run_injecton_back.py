@@ -14,6 +14,7 @@ import numpy as np
 import xcoll as xc
 import xpart as xp
 import xtrack as xt
+import xfields as xf
 import pandas as pd
 import xobjects as xo
 import matplotlib.pyplot as plt
@@ -24,7 +25,6 @@ from warnings import warn
 from copy import deepcopy
 from multiprocessing import Pool
 from collections import namedtuple
-from scipy.optimize import curve_fit
 from contextlib import redirect_stdout, redirect_stderr, contextmanager
 #from pylhc_submitter.job_submitter import main as htcondor_submit
 
@@ -93,8 +93,13 @@ def prepare_injected_beam(twiss, line, ref_particle, injection_config, num_parti
     zeta_in_sigmas, delta_in_sigmas = xp.generate_2D_gaussian(num_particles)
     zeta = zeta_in_sigmas*bunch_length_injection
     delta = delta_in_sigmas*energy_spread_injection+energy_offset_injection
-    
+
+    ## Cycle the line so to start from the injection point qi6.1..16 for zero alfx and dpx
+
+    line.cycle(name_first_element=start_element, inplace=True)
+
     # The longitudinal closed orbit needs to be manually supplied for now
+
     element_index = line.element_names.index(start_element)
     if isinstance(twiss, pd.DataFrame):
         zeta_co = twiss['zeta'].iloc[element_index]
@@ -110,7 +115,8 @@ def prepare_injected_beam(twiss, line, ref_particle, injection_config, num_parti
         x_norm=x_in_sigmas, px_norm=px_in_sigmas,
         y_norm=y_in_sigmas, py_norm=py_in_sigmas,
         nemitt_x=normalized_emittance_x_injection, nemitt_y=normalized_emittance_y_injection,  
-        at_element=start_element)
+        at_element=start_element
+        )
     
     part.start_tracking_at_element = -1
     part.x = part.x + x_offset_injection
@@ -170,10 +176,11 @@ def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor
 
     # Track (saving turn-by-turn data)
     for turn in range(num_turns):
-        #print(f'Start turn {turn}, Survivng particles: {particles._num_active_particles}')
+        print(f'Start turn {turn}, Survivng particles: {particles._num_active_particles}')
         #if turn == 0 and particles.start_tracking_at_element < 0:
         #    line.track(particles, num_turns=1)
         #else:
+        #line.track(particles, num_turns=1)
         line.track(particles, num_turns=1, ele_start=start_element, ele_stop=start_element)          
             
         if particles._num_active_particles == 0:
@@ -242,8 +249,8 @@ def insert_monitors(num_turns, rad_line, twiss, num_particles, start_element):
     # Define monitor, for now just one particle
     monitor = xt.ParticlesMonitor(start_at_turn=0, stop_at_turn =num_turns, num_particles = num_particles, auto_to_numpy=True)
 
-    monitors = [monitor.copy() for _ in range(4)]
-    monitor_names = ['monitor_prim_coll', 'monitor_at_ipg', 'monitor_mask', 'monitor_inject']
+    monitors = [monitor.copy() for _ in range(5)]
+    monitor_names = ['monitor_prim_coll', 'monitor_at_ipg', 'monitor_mask', 'monitor_inject' ,'monitor_s_0']
 
     if isinstance(twiss, pd.DataFrame):
         df_twiss = twiss
@@ -272,7 +279,173 @@ def insert_monitors(num_turns, rad_line, twiss, num_particles, start_element):
     # Insert monitor at the beam starting point, adjusting for a small offset
     rad_line.insert_element(monitor_names[3], monitors[3], at_s=s_inj+ 0.01)
     
+    rad_line.insert_element(monitor_names[4], monitors[4], at_s=0)
+
     return monitor_names #, monitors
+
+def configure_tracker_radiation(line, radiation_model, beamstrahlung_model=None, bhabha_model=None, for_optics=False):
+    mode_print = 'optics' if for_optics else 'tracking'
+
+    print_message = f"Tracker synchrotron radiation mode for '{mode_print}' is '{radiation_model}'"
+
+    _beamstrahlung_model = None if beamstrahlung_model == 'off' else beamstrahlung_model
+    _bhabha_model = None if bhabha_model == 'off' else bhabha_model
+
+    if radiation_model == 'mean':
+        if for_optics:
+            # Ignore beamstrahlung and bhabha for optics
+            line.configure_radiation(model=radiation_model)
+        else:
+            line.configure_radiation(model=radiation_model, 
+                                     model_beamstrahlung=_beamstrahlung_model,
+                                     model_bhabha=_bhabha_model)
+        # The matrix stability tolerance needs to be relaxed for radiation and tapering
+        # TODO: check if this is still needed
+        line.matrix_stability_tol = 0.5
+
+    elif radiation_model == 'quantum':
+        if for_optics:
+            print_message = ("Cannot perform optics calculations with radiation='quantum',"
+            " reverting to radiation='mean' for optics.")
+            line.configure_radiation(model='mean')
+        else:
+            line.configure_radiation(model='quantum',
+                                     model_beamstrahlung=_beamstrahlung_model,
+                                     model_bhabha=_bhabha_model)
+        line.matrix_stability_tol = 0.5
+
+    elif radiation_model == 'off':
+        pass
+    else:
+        raise ValueError('Unsupported radiation model: {}'.format(radiation_model))
+    print(print_message)
+
+def find_apertures(line):
+    i_apertures = []
+    apertures = []
+    for ii, ee in enumerate(line.elements):
+        if ee.__class__.__name__.startswith('Limit'):
+            i_apertures.append(ii)
+            apertures.append(ee)
+    return np.array(i_apertures), np.array(apertures)
+
+def find_bb_lenses(line):
+    i_apertures = []
+    apertures = []
+    for ii, ee in enumerate(line.elements):
+        if ee.__class__.__name__.startswith('BeamBeamBiGaussian3D'):
+            i_apertures.append(ii)
+            apertures.append(ee)
+    return np.array(i_apertures), np.array(apertures)
+
+def insert_bb_lens_bounding_apertures(line):
+    # Place aperture defintions around all beam-beam elements in order to ensure
+    # the correct functioning of the aperture loss interpolation
+    # the aperture definitions are taken from the nearest neighbour aperture in the line
+    s_pos = line.get_s_elements(mode='upstream')
+    apert_idx, apertures = find_apertures(line)
+    apert_s = np.take(s_pos, apert_idx)
+
+    bblens_idx, bblenses = find_bb_lenses(line)
+    bblens_names = np.take(line.element_names, bblens_idx)
+    bblens_s_start = np.take(s_pos, bblens_idx)
+    bblens_s_end = np.take(s_pos, bblens_idx + 1)
+
+    # Find the nearest neighbour aperture in the line
+    bblens_apert_idx_start = np.searchsorted(apert_s, bblens_s_start, side='left')
+    bblens_apert_idx_end = bblens_apert_idx_start + 1
+
+    aper_start = apertures[bblens_apert_idx_start]
+    aper_end = apertures[bblens_apert_idx_end]
+
+    idx_offset = 0
+    for ii in range(len(bblenses)):
+        line.insert_element(name=bblens_names[ii] + '_aper_start',
+                            element=aper_start[ii].copy(),
+                            at=bblens_idx[ii] + idx_offset)
+        idx_offset += 1
+
+        line.insert_element(name=bblens_names[ii] + '_aper_end',
+                            element=aper_end[ii].copy(),
+                            at=bblens_idx[ii] + 1 + idx_offset)
+        idx_offset += 1
+
+def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
+                  sigma_x, sigma_px, sigma_y, sigma_py, beamstrahlung_on=False):
+       
+    slicer = xf.TempSlicer(n_slices=n_slices, sigma_z=sigma_z, mode="shatilov")
+
+    el_beambeam = xf.BeamBeamBiGaussian3D(
+            #_context=context,
+            config_for_update = None,
+            other_beam_q0=other_beam_q0,
+            phi=phi, # half-crossing angle in radians
+            alpha=alpha, # crossing plane
+            # decide between round or elliptical kick formula
+            min_sigma_diff = 1e-28,
+            # slice intensity [num. real particles] n_slices inferred from length of this
+            slices_other_beam_num_particles = slicer.bin_weights * nb,
+            # unboosted strong beam moments
+            slices_other_beam_zeta_center = slicer.bin_centers,
+            slices_other_beam_Sigma_11    = n_slices*[sigma_x**2], # Beam sizes for the other beam, assuming the same is approximation
+            slices_other_beam_Sigma_22    = n_slices*[sigma_px**2],
+            slices_other_beam_Sigma_33    = n_slices*[sigma_y**2],
+            slices_other_beam_Sigma_44    = n_slices*[sigma_py**2],
+            # only if BS on
+            slices_other_beam_zeta_bin_width_star_beamstrahlung = None if not beamstrahlung_on else slicer.bin_widths_beamstrahlung / np.cos(phi),  # boosted dz
+            # has to be set
+            slices_other_beam_Sigma_12    = n_slices*[0],
+            slices_other_beam_Sigma_34    = n_slices*[0],
+            compt_x_min                   = 1e-4,
+        )
+    el_beambeam.iscollective = True # Disable in twiss
+
+    return el_beambeam
+
+def _insert_beambeam_elements(line, config_dict, twiss_table, nemitt):
+
+    beamstrahlung_mode = config_dict['run'].get('beamstrahlung', 'off')
+    beamstrahlung_mode = config_dict['run'].get('bhabha', 'off')
+    # This is needed to set parameters of the beam-beam lenses
+    beamstrahlung_on = beamstrahlung_mode != 'off'
+
+    beambeam_block = config_dict.get('beambeam', None)
+    if beambeam_block is not None:
+
+        beambeam_list = beambeam_block
+        if not isinstance(beambeam_list, list):
+            beambeam_list = [beambeam_list, ]
+
+        print('Beam-beam definitions found, installing beam-beam elements at: {}'
+              .format(', '.join([dd['at_element'] for dd in beambeam_list])))
+            
+        for bb_def in beambeam_list:
+            element_name = bb_def['at_element']
+            # the beam-beam lenses are thin and have no effects on optics so no need to re-compute twiss
+            element_twiss_index = list(twiss_table.name).index(element_name)
+            # get the line index every time as it changes when elements are installed
+            element_line_index = line.element_names.index(element_name)
+            #element_spos = twiss_table.s[element_twiss_index]
+            
+            sigmas = twiss_table.get_betatron_sigmas(*nemitt if hasattr(nemitt, '__iter__') else (nemitt, nemitt))
+
+            bb_elem = _make_bb_lens(nb=float(bb_def['bunch_intensity']), 
+                                    phi=float(bb_def['crossing_angle']), 
+                                    sigma_z=float(bb_def['sigma_z']),
+                                    n_slices=int(bb_def['n_slices']),
+                                    other_beam_q0=int(bb_def['other_beam_q0']),
+                                    alpha=0, # Put it to zero, it is okay for this use case
+                                    sigma_x=np.sqrt(sigmas['Sigma11'][element_twiss_index]), 
+                                    sigma_px=np.sqrt(sigmas['Sigma22'][element_twiss_index]), 
+                                    sigma_y=np.sqrt(sigmas['Sigma33'][element_twiss_index]), 
+                                    sigma_py=np.sqrt(sigmas['Sigma44'][element_twiss_index]), 
+                                    beamstrahlung_on=beamstrahlung_on)
+            
+            line.insert_element(index=element_line_index, 
+                                element=bb_elem,
+                                name=f'beambeam_{element_name}')
+        
+        insert_bb_lens_bounding_apertures(line)
 
 def save_track_to_h5(monitor, num_turns, monitor_name='0', output_dir="plots", turn =0):
     # Extract the relevant properties directly from the monitor
@@ -334,7 +507,7 @@ def load_twiss_from_json(file_path):
 
     return df_twiss
  
-def initialize_optics_and_calculate_twiss(xtrack_line, num_turns, twiss_file_path):
+def initialize_optics_and_calculate_twiss(xtrack_line, config_dict, nemitt, twiss_file_path):
     """
     Initialize the optics and calculate Twiss parameters.
     """
@@ -354,6 +527,10 @@ def initialize_optics_and_calculate_twiss(xtrack_line, num_turns, twiss_file_pat
     df_twiss_rad = twiss_rad.to_pandas()  
     save_twiss_to_json(df_twiss_rad, twiss_file_path)  
     print(f"Twiss parameters after SR compensation saved to {twiss_file_path}.")
+
+    rad_line.discard_tracker()
+
+    _insert_beambeam_elements(rad_line, config_dict, twiss_rad, nemitt)
 
     return rad_line, twiss_rad
 
@@ -680,7 +857,7 @@ def main(config_file, submit, merge):
                 print(f"Twiss parameters after SR compensation saved to {twiss_file_path}.")
         else:
             xtrack_line = input_config['xtrack_line']
-            rad_line, twiss_rad = initialize_optics_and_calculate_twiss(xtrack_line, num_turns, twiss_file_path)
+            rad_line, twiss_rad = initialize_optics_and_calculate_twiss(xtrack_line, config_dict, nemitt, twiss_file_path)
             # Uncomment to save the line after processing, does not work properly if you want to use it later to install collimators
             rad_line.to_json(SR_coll_line)
 
@@ -698,6 +875,19 @@ def main(config_file, submit, merge):
             # Prepare beam injected from booster
             particles = prepare_injected_beam(twiss_rad, rad_line, ref_part,injection_config, num_particles, capacity)
             
+            radiation_mode = config_dict['run']['radiation']
+            beamstrahlung_mode = config_dict['run']['beamstrahlung']
+            bhabha_mode = config_dict['run']['bhabha']
+            
+            configure_tracker_radiation(rad_line, radiation_mode, beamstrahlung_mode, bhabha_mode, for_optics=False)
+            if 'quantum' in (radiation_mode, beamstrahlung_mode, bhabha_mode):
+                # Explicitly initialise the random number generator for the quantum mode
+                seed = config_dict['run']['seed']
+                if seed > 1e5:
+                    raise ValueError('The random seed is too large. Please use a smaller seed (<1e5).')
+                seeds = np.full(particles._capacity, seed) + np.arange(particles._capacity)
+                particles._init_random_number_generator(seeds=seeds)
+
             lossmap_json = generate_lossmap(rad_line, num_turns, particles, ref_part, input_config, monitor_names, lossmap_config, start_element, output_dir, impact=False)
             
             print('Done!')

@@ -31,16 +31,50 @@ injection:
   seed_y: 1995
   seed_z: 1996
 
-run:
+beambeam:
+  - 
+    at_element: 'ip.1'
+    bunch_intensity: 2.14e11
+    sigma_z: 15.5e-3
+    crossing_angle: 15e-3
+    other_beam_q0: -1
+    n_slices: 300
+  -
+    at_element: 'ip.3'
+    bunch_intensity: 2.14e11
+    sigma_z: 15.5e-3
+    crossing_angle: 15e-3
+    other_beam_q0: -1
+    n_slices: 300
+  -
+    at_element: 'ip.5'
+    bunch_intensity: 2.14e11
+    sigma_z: 15.5e-3
+    crossing_angle: 15e-3
+    other_beam_q0: -1
+    n_slices: 300
+  -
+    at_element: 'ip.7'
+    bunch_intensity: 2.14e11
+    sigma_z: 15.5e-3
+    crossing_angle: 15e-3
+    other_beam_q0: -1
+    n_slices: 300
+
+run:  
+  radiation: 'quantum'
+  beamstrahlung: 'quantum'
+  bhabha: 'quantum'
   #radiation: 'mean'
   #compensate_sr_energy_loss: True
   #sr_compensation_delta: 0.00010839358763518439
   #energy_cut: 0.165
   #batch_mode: True
-  turns: 2500
-  nparticles: 2000 
+  seed: 2000
+  turns: 500
+  nparticles: 1000
   max_particles: 5000 
-  output_dir : 'plots'
+  output_dir : 'test_BB+BS+SR'
 
 jobsubmission:
   working_directory: 'plots'
