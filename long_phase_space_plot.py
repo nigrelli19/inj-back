@@ -20,7 +20,7 @@ def load_h5_to_dict(file_path):
     
     return data_dict
 
-output_dir = 'test_BS'
+output_dir = 'dataset/all_inj_2.5k'
 merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_inject.h5'))
 
 num_particles = int(len(merged_data['x']))
@@ -32,7 +32,7 @@ PY = merged_data['py'].reshape(num_particles, num_turns).T
 zeta = merged_data['zeta'].reshape(num_particles, num_turns).T
 delta = merged_data['delta'].reshape(num_particles, num_turns).T
 
-line = xt.Line.from_json('test/SR_coll_line.json')
+line =xt.Line.from_json('lines_&_coll/tapered_z_b1_thin_2.25pm.seq.json')
 df_line = line.to_pandas()
 tw = line.twiss()
 
@@ -50,8 +50,8 @@ H_ufp = a1*(np.sin(phi_s_rad)*(2*phi_s_rad - np.pi) + np.cos(phi_s_rad))
 
 H_z_usp = lambda qq, pqq: a1*(np.sin(phi_s_rad)*a2*qq - np.cos(phi_s_rad-a2*qq)) - 0.5*tw.slip_factor*pqq**2 - H_ufp
 
-qq_vals = np.linspace(-0.2, 0.3, 500)  # Longitudinal displacement
-pqq_vals = np.linspace(-0.010844, 0.0108244, 500)  # Momentum deviation (LEAVE L=IT LIKE THIS TO SEE THE SEPARATRIX)
+qq_vals = np.linspace(-0.2, 0.4, 500)  # Longitudinal displacement
+pqq_vals = np.linspace(-0.017722, 0.017722, 500)  # Momentum deviation (LEAVE L=IT LIKE THIS TO SEE THE SEPARATRIX)
 QQ, PQQ = np.meshgrid(qq_vals, pqq_vals)
 
 # Compute Hamiltonian values
@@ -86,8 +86,8 @@ plt.ylabel(r"$\delta$")
 plt.title(r"Hamiltonian Contours with Particle Motion")
 
 # Axis Limits (adjust based on your data)
-#plt.xlim(-5e-5, 5e-5)
-#plt.ylim(-5e-6, 5e-6)
+plt.ylim(-0.015, 0.015)
+plt.xlim(-0.2, 0.3)
 
 # Add Color Bar for Turns
 cbar = plt.colorbar(sc)

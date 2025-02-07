@@ -2,9 +2,12 @@
 
 /plot*/
 /test*/
-/line*/
 /in*/
 /__pycache__/
+/new*/
+/old*/
+/data*/
+
 
 # Not pushing big files
 

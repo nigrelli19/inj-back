@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-POW_TOT =  17.5e6 # J
+POW_TOT =  17.5e4 # 1% of the total energy 17.5e6 # J  
 
 FCC_EE_WARM_REGIONS = np.array([
     [0.0, 2.2002250210956813], [2.900225021095681, 2.9802250210956807], 
@@ -186,7 +186,7 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
     '''
     Function to process the losses data to produce datframe of collimator losses and aperture losses. It handles both json file from original script in htcondor and also the one produces from particles.hdf 
     '''
-    lossmap_norms = ['none', 'max', 'coll_max','total', 'coll_total', 'coll_turn']
+    lossmap_norms = ['none', 'max', 'coll_max','total', 'coll_total', 'tot_energy']
     if norm not in lossmap_norms:
         raise ValueError('norm must be in [{}]'.format(', '.join(lossmap_norms)))
 
@@ -240,7 +240,7 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
         norm_val = max(coll_loss)
     elif norm == 'none':
         norm_val = 1
-    elif norm == 'coll_turn':
+    elif norm == 'tot_energy':
         norm_val = tot_energy_full
         #norm_val = NORM_VAL[0][0] #TO CHANGE FOR EVERY CONFIGURATION, NEEDS TO BE IMPROVED
     
@@ -282,6 +282,7 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
             np.add.at(ap_warm, ap_indices[mask_warm] - 1, warm_loss[mask_warm])
             np.add.at(ap_cold, ap_indices[~mask_warm] - 1, cold_loss[~mask_warm])
 
+            
             warm_loss_pow = warm_loss * POW_TOT * bin_w
             cold_loss_pow = cold_loss * POW_TOT * bin_w
 
@@ -300,7 +301,7 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
         ap_cold_pow = [0]
 
     if coll_loss.sum() > 0:
-        coll_pow = coll_loss * POW_TOT/ norm_val #loss fraction as energy_lost/(tot_energy_lost)
+        coll_pow = coll_loss * POW_TOT/ norm_val # fraction of the injected beam lost in Joule calculated as energy_lost_coll(eV)*(tot_energy_true_beam)(Joule)/(tot_energy_sim_beam(eV))
         coll_loss /= (norm_val * coll_length)
         zeros = np.full_like(coll_group.index, 0)  # Zeros to pad the bars
         coll_edges = np.dstack([coll_start, coll_start, coll_end, coll_end]).flatten()
@@ -314,14 +315,15 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
 
     return coll_edges, coll_loss, coll_pow, aper_edges, ap_warm, ap_cold, ap_warm_pow, ap_cold_pow, tot_energy
 
-def plot_lossmaps(base_dir, output_dir, twiss, single_file, output_file, norm='none', tot_energy_full = 0):
+def plot_lossmaps(base_dir, output_dir, single_file, output_file, norm='none', tot_energy_full = 0):
     '''
     Function to plot lossmap in cleaning efficency, energy lost and zoom in IPG and IPF.
     '''
     # Load twiss parameters
-    twiss = pd.read_json(twiss, orient='split')
-    s_min, s_max = twiss.s.min(), twiss.s.max()
-    
+    #twiss = pd.read_json(twiss, orient='split')
+    #s_min, s_max = twiss.s.min(), twiss.s.max()
+    s_min, s_max = 0, 90658.50572430571
+
     coll_edges, coll_loss, coll_pow, aper_edges, ap_warm, ap_cold, ap_warm_pow, ap_cold_pow, tot_energy = prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm, tot_energy_full)
     
     fig, ax = plt.subplots(figsize=(18, 6))
@@ -403,7 +405,7 @@ def plot_lossmaps(base_dir, output_dir, twiss, single_file, output_file, norm='n
 
     plot_margin = 500
     ax_pow.set_xlim(s_min - plot_margin, s_max + plot_margin)
-    ax_pow.set_ylim(1,2e7)
+    ax_pow.set_ylim(1,2e4)
 
     ax_pow.yaxis.grid(visible=True, which='major', zorder=0)
     ax_pow.yaxis.grid(visible=True, which='minor', zorder=0)
@@ -514,86 +516,6 @@ def plot_lossmaps(base_dir, output_dir, twiss, single_file, output_file, norm='n
 
     return tot_energy
 
-def plot_lossmap_with_slider(base_dir, output_dir, twiss, turns=None, norm='none'):
-    '''
-    Function to plot lossmap wrt turns and change the turn interactively with a slider.
-    '''
-    # Load twiss parameters
-    twiss = pd.read_json(twiss, orient='split')
-    s_min, s_max = twiss.s.min(), twiss.s.max()
-
-    # Initial data load for setting up the plot
-    init_turn = turns[0] if turns else 0
-    lossmap_at_0 = f'merged_lossmap_turn_{init_turn}.json'
-    coll_edges, coll_loss, coll_pow, aper_edges, ap_warm, ap_cold, ap_warm_pow, ap_cold_pow = prepare_lossmap_values(base_dir, output_dir, s_min, s_max, lossmap_at_0, norm)
-
-    # Create the initial plot
-    fig, ax = plt.subplots(figsize=(14, 6))
-    plt.subplots_adjust(bottom=0.25)  # Adjust for slider space
-
-    # Set up slider
-    ax_slider = plt.axes([0.2, 0.1, 0.65, 0.03], facecolor="lightgoldenrodyellow")
-    slider = Slider(ax_slider, 'Turn', turns[0], turns[-1], valinit=init_turn, valstep=1)
-
-    lw = 1
-    # Define a base alpha value
-
-    if np.sum(coll_pow) > 0:
-        fill_collimator = ax.fill_between(coll_edges, coll_pow, step='pre', color='k', alpha=0.9, zorder=9)
-        line_collimator = ax.step(coll_edges, coll_pow, color='k', lw=lw, zorder=10, label='Collimator losses')
-
-    if np.sum(ap_warm_pow) > 0:
-        fill_ap_warm = ax.fill_between(aper_edges[:-1], ap_warm_pow, step='post', color='r', alpha=0.9, zorder=9)
-        line_ap_warm = ax.step(aper_edges[:-1], ap_warm_pow, where='post', color='red', label='Warm losses', linewidth=1)
-
-    if np.sum(ap_cold_pow) > 0:
-        fill_ap_cold = ax.fill_between(aper_edges[:-1], ap_cold_pow, step='post', color='b', alpha=0.9, zorder=9)
-        line_ap_cold = ax.step(aper_edges[:-1], ap_cold_pow, where='post', color='blue', label='Cold losses', linewidth=1)
-
-    plot_margin = 500
-    ax.set_xlim(s_min - plot_margin, s_max + plot_margin)
-    ax.set_ylim(0.01, 1e10)
-    ax.set_xlabel('s [m]')
-    ax.set_yscale('log', nonpositive='clip')
-    ax.set_ylabel('Energy Lost [$J$]')
-    ax.set_title('Interactive lossmap')
-    ax.legend(loc='upper right')
-    ax.grid(visible=True)
-
-    # Slider update function
-    def update(val):
-        turn = int(slider.val)
-        lossmap_at_turn = f'merged_lossmap_turn_{turn}.json'
-        coll_edges, coll_loss, coll_pow, aper_edges, ap_warm, ap_cold, ap_warm_pow, ap_cold_pow = prepare_lossmap_values(base_dir, output_dir, s_min, s_max, lossmap_at_turn, norm)
-
-        # Clear previous plots
-        #ax.clear()
-        base_alpha = 0.1  # Starting alpha for plots
-        alpha_increment = 0.1  # Amount to increase alpha for each subsequent plot
-        # Adjust alpha for increasing transparency
-        base_alpha += alpha_increment
-        base_alpha = min(base_alpha, 1.0)  # Ensure alpha does not exceed 1
-
-        # Redraw with increasing transparency
-        if np.sum(coll_pow) > 0:
-            fill_collimator = ax.fill_between(coll_edges, coll_pow, step='pre', color='k', alpha=base_alpha, zorder=9)
-            line_collimator = ax.step(coll_edges, coll_pow, color='k', lw=lw, zorder=10, label='Collimator losses')
-
-        if np.sum(ap_warm_pow) > 0:
-            fill_ap_warm = ax.fill_between(aper_edges[:-1], ap_warm_pow, step='post', color='r', alpha=base_alpha, zorder=9)
-            line_ap_warm = ax.step(aper_edges[:-1], ap_warm_pow, where='post', color='red', label='Warm losses', linewidth=1)
-
-        if np.sum(ap_cold_pow) > 0:
-            fill_ap_cold = ax.fill_between(aper_edges[:-1], ap_cold_pow, step='post', color='b', alpha=base_alpha, zorder=9)
-            line_ap_cold = ax.step(aper_edges[:-1], ap_cold_pow, where='post', color='blue', label='Cold losses', linewidth=1)
-
-
-        fig.canvas.draw_idle()
-
-    # Connect the slider to update function
-    slider.on_changed(update)
-    plt.show()
-
 def collimators_names(coll_dat):
         
     data = {
@@ -684,18 +606,19 @@ def collimators_names_json(coll_dat_json):
 def main(base_dir):
 
     output_dir = base_dir
-    twiss = os.path.join(output_dir,f'twiss_params.json')
-
-    # Uncomment to produce lossmap with slider 
-    #plot_lossmap_with_slider(base_dir, output_dir, twiss, turns, norm='coll_turn')
+    
+    df_part = pd.read_hdf(os.path.join(base_dir,"part_merged.hdf"), key = "particles")
+    
+    tot_energy_full = 45.6e9*len(df_part[df_part['parent_particle_id'] == df_part['particle_id']])
 
     single_file = 'merged_lossmap_full.json'
     output_file = 'merged_lossmap_full'
-    tot_energy_full = plot_lossmaps(output_dir, output_dir, twiss, single_file, output_file, norm='total')
+    tot_energy_lost = plot_lossmaps(output_dir, output_dir, single_file, output_file, norm='tot_energy', tot_energy_full=tot_energy_full)
 
     with open(os.path.join(output_dir,'loss.txt'), "w") as file:
-        file.write(f"Loss total: {tot_energy_full}\n")
-        
+        file.write(f"Total Energy: {tot_energy_full}\n")
+        file.write(f"Loss total: {tot_energy_lost}\n")
+
         '''for i in turns:
             single_file = f'merged_lossmap_turn_{i}.json'
             output_file = f'merged_lossmap_turn_{i}'

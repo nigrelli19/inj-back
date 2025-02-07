@@ -18,7 +18,7 @@
         "EMITTANCE_Y": 2.25E-12,
         "LATTICE_EMITTANCE_Y": 1.06E-12,
         "EMITTANCE_RATIO": 2.0E-3,
-        "BUNCHES": 11200,
+        "BUNCHES": 11220,
         "BUNCH_POPULATION": 2.176E11,
         "BEAM_CURRENT": 1283,
         "MOMENTUM_COMPACTION": 28.6E-6,

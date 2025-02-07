@@ -9,8 +9,8 @@ import json
 import h5py
 import scipy
 
-GEMIT_X = 0.71e-9
-GEMIT_Y = 1.9e-12
+GEMIT_X = 0.70e-9
+GEMIT_Y = 2.25e-12
 
 def load_h5_to_dict(file_path):
     data_dict = {}
@@ -67,10 +67,10 @@ def normalized_coordiantes(twiss, track_particle, monitor_name = '0'):
     #print(np.sqrt(betx * GEMIT_X))
     return X_norm, Y_norm, Px_norm, Py_norm
 
-output_dir = 'test' #'test_DA_1'
+output_dir = 'dataset/SR+BB+BS' #'test_DA_1'
 #df_part = pd.read_hdf(os.path.join(output_dir,"part.hdf"), key = "particles")
-merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_inject.h5'))
 #merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_prim_coll.h5'))
+merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_inject.h5'))
 
 num_particles = int(len(merged_data['x']))
 num_turns = int(len(merged_data['x'].T))
@@ -81,13 +81,13 @@ PY = merged_data['py'].reshape(num_particles, num_turns).T
 
 
 twiss = pd.read_json(os.path.join(output_dir,f'twiss_params.json'), orient='split')
-X_norm, Y_norm, Px_norm, Py_norm = normalized_coordiantes(twiss, merged_data, 'drift_5508')
+X_norm, Y_norm, Px_norm, Py_norm = normalized_coordiantes(twiss, merged_data, 'qi5.4..7')
 #X_norm, Y_norm, Px_norm, Py_norm = normalized_coordiantes(twiss, merged_data, 'tcp.h.b1')
 
-#print(X)
-turns = range(0,num_turns)  
-turns = range(0, 20)
-#turns = [0, 25, 50, 75, 100, 125, 150, 175, 199] #250,  300, 350,  400, 450, 490]
+#turns = range(0,num_turns)  
+#turns = range(0, 20)
+turns = [0, 50, 100, 150, 200, 250,  300, 350,  400, 450, 499]
+
 # Set up the figure
 fig, ax = plt.subplots(figsize=(6, 6))
 
@@ -96,12 +96,13 @@ ax.set_ylim(-2, 2)
 ax.set_xlabel(r'x [mm]')
 ax.set_ylabel(r'y [mm]')
 
-ax.set_xlim(-25, 25)
-ax.set_ylim(-25, 25)
-ax.set_xlabel(r'y [$\sigma$]')
-ax.set_ylabel(r'py [$\sigma$]')
-#ax.set_xlabel(r'x [$\sigma$]')
+ax.set_xlim(-100, 100)
+ax.set_ylim(-100, 100)
+#ax.set_xlabel(r'y [$\sigma$]')
+#ax.set_ylabel(r'py [$\sigma$]')
+ax.set_xlabel(r'x [$\sigma$]')
 #ax.set_ylabel(r'px [$\sigma$]')
+ax.set_ylabel(r'y [$\sigma$]')
 
 ax.grid(True, linestyle='--', alpha=0.5)
 scat = ax.scatter([], [], s=0.5)
@@ -111,7 +112,8 @@ for turn in turns:
     print(f"Saving frame for turn {turn}")
     ax.set_title(f"Turn {turn}")
     #scat.set_offsets(np.c_[X[turn], Y[turn]])
-    scat.set_offsets(np.c_[Y_norm.T[turn], Py_norm.T[turn]])
+    scat.set_offsets(np.c_[X_norm[turn], Y_norm[turn]])
+    #scat.set_offsets(np.c_[Y_norm.T[turn], Py_norm.T[turn]])
     #scat.set_offsets(np.c_[X_norm.T[turn], Px_norm.T[turn]])
     
     # Save the current frame as a PNG

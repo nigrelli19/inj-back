@@ -33,7 +33,7 @@ def main(base_dir):
     collimators = collimators_names_json('lines_&_coll/CollDB_FCCee_z_common_LSSs_TCS.json')
     #collimators = collimators_names('lines_&_coll/CollDB_FCCee_z_tridodo572_wiggler_TCTs.dat') #collimators_names('lines_&_coll/CollDB_vertical_aperture_test.dat') #
     
-    coll_types = ['tcp', 'tcs', 'tcr','tct']  # Collimator types
+    coll_types = ['tcp.h.', 'tcp.v.', 'tcp.hp','tcs.h.','tcs.v.', 'tcs.hp','tct.v', 'tct.h','tcr']  # Collimator types
     results = []
 
 
@@ -96,11 +96,11 @@ def main(base_dir):
 
     # Create legend handles
     legend_patches = [mpatches.Patch(color=colors[i], label=collimator_types.iloc[i]) for i in range(num_bars)]
-    plt.legend(handles=legend_patches, title="Collimator Type", fontsize=12, title_fontsize=13, loc="upper right")
+    plt.legend(handles=legend_patches, title="Collimator Type", fontsize=12, title_fontsize=13, loc="upper left")
 
     # Formatting
     plt.xlabel("Collimator Type", fontsize=14)
-    plt.ylabel("Total Loss", fontsize=14)
+    plt.ylabel("Total Loss [%]", fontsize=14)
     plt.title("Total Loss per Collimator Type", fontsize=16)
     plt.xticks(rotation=45, ha="right")  # Rotate labels for better readability
     plt.grid(axis="y", linestyle="--", alpha=0.7)

@@ -1,7 +1,7 @@
 ---
 input:
   #machine: 'fccee'
-  xtrack_line: 'lines_&_coll/FCCee_z_common_LSSs_TCS.json'
+  xtrack_line: 'lines_&_coll/tapered_z_b1_thin_2.25pm.seq.json'
   collimator_file: 'lines_&_coll/CollDB_FCCee_z_common_LSSs_TCS.json'
   reference_parameters: 'lines_&_coll/reference_parameters.json'
   bdsim_config: 'settings.gmad'
@@ -34,29 +34,29 @@ injection:
 beambeam:
   - 
     at_element: 'ip.1'
-    bunch_intensity: 2.14e11
-    sigma_z: 15.5e-3
+    bunch_intensity: 2.176e11
+    sigma_z: 14.6e-3
     crossing_angle: 15e-3
     other_beam_q0: -1
     n_slices: 300
   -
     at_element: 'ip.3'
-    bunch_intensity: 2.14e11
-    sigma_z: 15.5e-3
+    bunch_intensity: 2.176e11
+    sigma_z: 14.6e-3
     crossing_angle: 15e-3
     other_beam_q0: -1
     n_slices: 300
   -
     at_element: 'ip.5'
-    bunch_intensity: 2.14e11
-    sigma_z: 15.5e-3
+    bunch_intensity: 2.176e11
+    sigma_z: 14.6e-3
     crossing_angle: 15e-3
     other_beam_q0: -1
     n_slices: 300
   -
     at_element: 'ip.7'
-    bunch_intensity: 2.14e11
-    sigma_z: 15.5e-3
+    bunch_intensity: 2.176e11
+    sigma_z: 14.6e-3
     crossing_angle: 15e-3
     other_beam_q0: -1
     n_slices: 300
@@ -64,17 +64,16 @@ beambeam:
 run:  
   radiation: 'quantum'
   beamstrahlung: 'quantum'
-  bhabha: 'quantum'
-  #radiation: 'mean'
+  bhabha: 'off'
   #compensate_sr_energy_loss: True
   #sr_compensation_delta: 0.00010839358763518439
   #energy_cut: 0.165
   #batch_mode: True
   seed: 2000
   turns: 500
-  nparticles: 1000
-  max_particles: 5000 
-  output_dir : 'test_BB+BS+SR'
+  nparticles: 100
+  max_particles: 200 
+  output_dir : 'dataset/BS+SR_test'
 
 jobsubmission:
   working_directory: 'plots'

@@ -118,7 +118,7 @@ def prepare_injected_beam(twiss, line, ref_particle, injection_config, num_parti
         at_element=start_element
         )
     
-    part.start_tracking_at_element = -1
+    #part.start_tracking_at_element = -1
     part.x = part.x + x_offset_injection
 
     return part
@@ -177,15 +177,13 @@ def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor
     # Track (saving turn-by-turn data)
     for turn in range(num_turns):
         print(f'Start turn {turn}, Survivng particles: {particles._num_active_particles}')
-        #if turn == 0 and particles.start_tracking_at_element < 0:
-        #    line.track(particles, num_turns=1)
-        #else:
-        #line.track(particles, num_turns=1)
-        line.track(particles, num_turns=1, ele_start=start_element, ele_stop=start_element)          
+        line.track(particles, num_turns=1)
+        #    line.track(particles, num_turns=1, ele_start=start_element, ele_stop=start_element)          
             
         if particles._num_active_particles == 0:
             print(f'All particles lost by turn {turn}, teminating.')
             break
+    
     for name in monitor_names:
         last_track = line.get(name)
         save_track_to_h5(last_track, num_turns, name , output_dir, turn)
@@ -205,7 +203,18 @@ def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor
     # Make loss map
     weights = lossmap_config.get('weights', 'none')
 
+    line.cycle(name_first_element='l000017$start', inplace=True)
+
+    df_line = line.to_pandas()
+    inj_index= df_line[df_line['name'] =='qi5.4..7'].index[0]
+    max_index = df_line.index.max()
+    s_inj = df_line[df_line['name'] =='qi5.4..7']['s'].values[0]
+    s_max = df_line['s'].max()
+
     particles = particles.remove_unused_space()  
+
+    particles.s = (particles.s + s_inj) % s_max 
+    particles.at_element = ((particles.at_element + inj_index) % max_index).astype(int)
 
     file_path = os.path.join(output_dir, f'merged_lossmap_full.json')
 
@@ -238,7 +247,7 @@ def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor
 
     return file_path
 
-def insert_monitors(num_turns, rad_line, twiss, num_particles, start_element):
+def insert_monitors(num_turns, rad_line, num_particles, start_element):
     """
     Inserts monitors at specific locations in the line:
     - At the syncrhtron mask position tcr.h.c3.2.b1
@@ -249,21 +258,16 @@ def insert_monitors(num_turns, rad_line, twiss, num_particles, start_element):
     # Define monitor, for now just one particle
     monitor = xt.ParticlesMonitor(start_at_turn=0, stop_at_turn =num_turns, num_particles = num_particles, auto_to_numpy=True)
 
+    df_line = rad_line.to_pandas()
+
     monitors = [monitor.copy() for _ in range(5)]
     monitor_names = ['monitor_prim_coll', 'monitor_at_ipg', 'monitor_mask', 'monitor_inject' ,'monitor_s_0']
 
-    if isinstance(twiss, pd.DataFrame):
-        df_twiss = twiss
-        s_mask = df_twiss.loc[df_twiss['name'] == 'tcr.h.c0.2.b1', 's'].values[0]
-        s_prim_coll = df_twiss.loc[df_twiss['name'] == 'tcp.h.b1', 's'].values[0]
-        s_exp_ipg = df_twiss.loc[df_twiss['name'] == 'ip.4', 's'].values[0]
-        s_inj = df_twiss.loc[df_twiss['name'] == start_element, 's'].values[0]
-    else:
-        s_mask = twiss['s','tcr.h.c0.2.b1'] # SR coll 
-        s_prim_coll = twiss['s','tcp.h.b1']
-        s_exp_ipg = twiss['s','ip.4']
-        df_twiss = twiss.to_pandas()
-        s_inj = twiss['s', start_element]
+    s_mask = df_line.loc[df_line['name'] == 'tcr.h.c0.2.b1', 's'].values[0]
+    s_prim_coll = df_line.loc[df_line['name'] == 'tcp.h.b1', 's'].values[0]
+    s_exp_ipg = df_line.loc[df_line['name'] == 'ip.4', 's'].values[0]
+    s_inj = df_line.loc[df_line['name'] == start_element, 's'].values[0]
+
 
     rad_line.discard_tracker()
 
@@ -405,7 +409,7 @@ def _make_bb_lens(nb, phi, sigma_z, alpha, n_slices, other_beam_q0,
 def _insert_beambeam_elements(line, config_dict, twiss_table, nemitt):
 
     beamstrahlung_mode = config_dict['run'].get('beamstrahlung', 'off')
-    beamstrahlung_mode = config_dict['run'].get('bhabha', 'off')
+    #bhabha_mode = config_dict['run'].get('bhabha', 'off')
     # This is needed to set parameters of the beam-beam lenses
     beamstrahlung_on = beamstrahlung_mode != 'off'
 
@@ -456,6 +460,7 @@ def save_track_to_h5(monitor, num_turns, monitor_name='0', output_dir="plots", t
         'py': monitor.py,
         'zeta' : monitor.zeta,
         'delta' : monitor.delta,
+        's': monitor.s,
         'at_turn': monitor.at_turn
         #'at_element': monitor.at_element
     }
@@ -480,6 +485,7 @@ def save_track_to_h5(monitor, num_turns, monitor_name='0', output_dir="plots", t
             h5f.create_dataset('py', data=filtered_data['py'].astype(np.float32), compression='gzip')
             h5f.create_dataset('zeta', data=filtered_data['zeta'].astype(np.float32), compression='gzip')
             h5f.create_dataset('delta', data=filtered_data['delta'].astype(np.float32), compression='gzip')
+            h5f.create_dataset('s', data=filtered_data['s'].astype(np.float32), compression='gzip')
             h5f.create_dataset('at_turn', data=filtered_data['at_turn'].astype(np.int32), compression='gzip')
             #h5f.create_dataset('at_element', data=filtered_data['at_element'].astype(h5py.string_dtype(encoding='utf-8')), compression='gzip')
 
@@ -513,14 +519,16 @@ def initialize_optics_and_calculate_twiss(xtrack_line, config_dict, nemitt, twis
     """
     rad_line = xt.Line.from_json(xtrack_line)
     rad_line.build_tracker()
-    
-    rad_line.configure_radiation(model='mean')
+    configure_tracker_radiation(rad_line, config_dict['run']['radiation'], beamstrahlung_model=None, bhabha_model=None, for_optics=True)
+
+    #LINE IS ALREADY TAPERED
+    '''rad_line.configure_radiation(model='mean')
     rad_line.compensate_radiation_energy_loss() 
     tw = rad_line.twiss(eneloss_and_damping=True)
 
     # Compensate for SR + tapering
     delta0 = tw.delta[0] - np.mean(tw.delta)
-    rad_line.compensate_radiation_energy_loss(delta0=delta0)
+    rad_line.compensate_radiation_energy_loss(delta0=delta0)'''
 
     # Re-calculate Twiss parameters 
     twiss_rad = rad_line.twiss(method='6d', eneloss_and_damping=True)
@@ -859,11 +867,12 @@ def main(config_file, submit, merge):
             xtrack_line = input_config['xtrack_line']
             rad_line, twiss_rad = initialize_optics_and_calculate_twiss(xtrack_line, config_dict, nemitt, twiss_file_path)
             # Uncomment to save the line after processing, does not work properly if you want to use it later to install collimators
-            rad_line.to_json(SR_coll_line)
+            # LINE IS ALREADY TAPERED NO NEED TO SAVE IT AGAIN
+            # rad_line.to_json(SR_coll_line)
 
         # Insert monitors
         start_element = injection_config['start_element']
-        monitor_names = insert_monitors(num_turns, rad_line, twiss_rad, num_particles, start_element)
+        monitor_names = insert_monitors(num_turns, rad_line, num_particles, start_element)
         
         if os.path.exists(lossmap_json):
             #plot_lossmap(lossmap_json, bin_w, output_dir)
