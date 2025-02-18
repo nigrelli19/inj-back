@@ -7,9 +7,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 from matplotlib.widgets import Slider
 
-POW_TOT =  17.5e4 # 1% of the total energy 17.5e6 # J  
+TOT_INJ_ENERGY =  17.5e4 # 1% of the total energy 17.5e6 # J  
+NB = 11220
+KB = 2.176E11
+BEAM_ENERGY = 45.6e9
+EV_TO_JOULE = 1.60218e-19
 
-FCC_EE_WARM_REGIONS = np.array([
+FCC_EE_WARM_REGIONS_V23 = np.array([
     [0.0, 2.2002250210956813], [2.900225021095681, 2.9802250210956807], 
     [4.230225021095681, 4.310225021095681], [5.560225021095681, 5.860225021095681], 
     [7.110225021095681, 7.1902250210956815], [8.440225021095682, 19.021636933288438], 
@@ -66,15 +70,11 @@ FCC_EE_WARM_REGIONS = np.array([
     [90464.2953348198, 90541.25238340105], [90544.15238340104, 90650.30510261773], 
     [90651.55510261773, 90651.63510261773], [90652.88510261773, 90653.18510261775], 
     [90654.43510261775, 90654.51510261776], [90655.76510261776, 90655.84510261775]])
-     
-def check_warm_loss(s, warm_regions):
-    # FOR LATTICE V24.4_GHC
-    x_shift = 22664.626431  # 2032.000 + 1400.000 + 9616.175
-    x_wrap = 90658.50572430472 # Length of the machine
-    # Wrap the s value
-    s_wrapped = (s + x_shift) % x_wrap
 
-    return np.any((warm_regions.T[0] < s_wrapped) & (warm_regions.T[1] > s_wrapped))
+FCC_EE_WARM_REGIONS_V24 = np.array([[0.0, 2.200225021099322], [2.900225021099322, 2.9802250210923376], [4.230225021092338, 4.310225021094084], [5.560225021094084, 5.860225021096994], [7.110225021096994, 7.19022502109874], [8.44022502109874, 35.71083996460073], [38.41083996460073, 38.8938503086887], [41.5938503086887, 97.99168302970648], [100.69168302970648, 106.64570040097752], [109.34570040097752, 138.60250754266457], [141.30250754266456, 141.6025075426762], [141.8275075426762, 141.8275075426762], [142.05250754267618, 297.4744831588002], [297.6994831588002, 297.6994831588002], [297.92448315880023, 21989.80775571188], [21990.03275571188, 21990.03275571188], [21990.25775571188, 22204.590787030353], [22204.81578703035, 22204.81578703035], [22205.04078703035, 22205.34078703035], [22208.04078703035, 22234.50115599489], [22237.20115599489, 22343.067324241438], [22345.76732424144, 22475.1515061424], [22477.8515061424, 22580.385601309143], [22583.085601309143, 22656.186206056605], [22657.436206056605, 22657.51620605662], [22658.76620605662, 22659.066206056614], [22660.316206056614, 22660.396206056612], [22661.646206056612, 22661.726206056625], [22662.426206056625, 22666.82665609883], [22667.52665609883, 22667.606656098826], [22668.856656098826, 22668.936656098827], [22670.186656098827, 22670.48665609883], [22671.73665609883, 22671.816656098832], [22673.066656098832, 22700.337271042335], [22703.037271042336, 22703.52028138643], [22706.22028138643, 22762.618114107434], [22765.318114107435, 22771.272131478723], [22773.972131478724, 22803.228938620414], [22805.928938620415, 22806.228938620417], [22806.453938620416, 22806.453938620412], [22806.67893862041, 22962.100914236562], [22962.32591423656, 22962.325914236557], [22962.550914236555, 44654.434186791164], [44654.65918679116, 44654.659186791156], [44654.884186791154, 44869.217218109574], [44869.44221810957, 44869.44221810958], [44869.66721810958, 44869.96721810958], [44872.66721810958, 44899.127587074116], [44901.82758707411, 45007.69375532066], [45010.393755320656, 45139.77793722162], [45142.477937221614, 45245.01203238836], [45247.71203238836, 45320.81263713579], [45322.06263713579, 45322.14263713578], [45323.39263713578, 45323.69263713578], [45324.94263713578, 45325.022637135786], [45326.272637135786, 45326.35263713578], [45327.05263713578, 45331.45308717797], [45332.15308717797, 45332.23308717797], [45333.48308717797, 45333.563087177965], [45334.813087177965, 45335.113087177975], [45336.363087177975, 45336.44308717798], [45337.69308717798, 45364.96370212147], [45367.66370212147, 45368.14671246557], [45370.846712465565, 45427.24454518658], [45429.944545186576, 45435.898562557864], [45438.59856255786, 45467.855369699566], [45470.55536969956, 45470.855369699544], [45471.08036969954, 45471.08036969954], [45471.30536969954, 45626.72734531565], [45626.95234531565, 45626.95234531565], [45627.17734531565, 67319.06061787016], [67319.28561787016, 67319.28561787016], [67319.51061787017, 67533.84364918858], [67534.06864918859, 67534.06864918859], [67534.29364918859, 67534.59364918858], [67537.29364918858, 67563.75401815311], [67566.4540181531, 67672.32018639962], [67675.02018639962, 67804.40436830054], [67807.10436830054, 67909.63846346727], [67912.33846346727, 67985.43906821472], [67986.68906821472, 67986.76906821472], [67988.01906821472, 67988.31906821474], [67989.56906821474, 67989.64906821474], [67990.89906821474, 67990.97906821474], [67991.67906821474, 67996.0795182569], [67996.7795182569, 67996.8595182569], [67998.1095182569, 67998.1895182569], [67999.4395182569, 67999.7395182569], [68000.9895182569, 68001.06951825689], [68002.31951825689, 68029.59013320039], [68032.29013320038, 68032.77314354447], [68035.47314354447, 68091.87097626545], [68094.57097626544, 68100.52499363669], [68103.22499363669, 68132.48180077839], [68135.18180077839, 68135.48180077838], [68135.70680077838, 68135.70680077838], [68135.93180077839, 68291.35377639449], [68291.5787763945, 68291.5787763945], [68291.8037763945, 89983.68704893017], [89983.91204893017, 89983.91204893017], [89984.13704893018, 90198.4700802486], [90198.69508024861, 90198.6950802486], [90198.9200802486, 90199.22008024857], [90201.92008024857, 90228.38044921312], [90231.08044921311, 90336.94661745962], [90339.64661745961, 90469.03079936057], [90471.73079936056, 90574.2648945273], [90576.9648945273, 90650.06549927473], [90651.31549927473, 90651.39549927472], [90652.64549927472, 90652.94549927475], [90654.19549927475, 90654.27549927475], [90655.52549927475, 90655.60549927475]])
+
+def check_warm_loss(s, warm_regions):
+    return np.any((warm_regions.T[0] < s) & (warm_regions.T[1] > s))
 
 def load_multiple_lossmaps(base_dir, output_dir, single_file=None):
     '''
@@ -182,7 +182,7 @@ def save_lossmap_to_json(merged_data, output_file):
     except Exception as e:
         print(f"Error saving lossmap data to JSON file: {e}")
 
-def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm='none', tot_energy_full = 0):
+def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm='none', total_sim_energy = 0):
     '''
     Function to process the losses data to produce datframe of collimator losses and aperture losses. It handles both json file from original script in htcondor and also the one produces from particles.hdf 
     '''
@@ -193,7 +193,7 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
     bin_w = 0.10
     nbins = int(np.ceil((s_max - s_min)/bin_w))
     
-    warm_regions = FCC_EE_WARM_REGIONS
+    warm_regions = FCC_EE_WARM_REGIONS_V24
 
 
     if single_file:
@@ -241,14 +241,11 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
     elif norm == 'none':
         norm_val = 1
     elif norm == 'tot_energy':
-        norm_val = tot_energy_full
-        #norm_val = NORM_VAL[0][0] #TO CHANGE FOR EVERY CONFIGURATION, NEEDS TO BE IMPROVED
-    
-    tot_energy = sum(coll_loss) + sum(aper_loss)
-    # To have the lossmap express in power: mulitply the loss factor(100% in this case) 
-    # for the real energy stored energy divided by the lifetime
-
-    #pow_tot = 17.5e6 # J
+        total_beam_energy =  TOT_INJ_ENERGY #NB * KB * BEAM_ENERGY #REAL BEAM ENERGY AT Z
+        total_sim_lost_energy = sum(coll_loss) + sum(aper_loss)
+        lost_energy_fraction = total_sim_lost_energy / total_sim_energy
+        total_lost_energy_joule = total_beam_energy * lost_energy_fraction #* EV_TO_JOULE
+        norm_val = total_sim_lost_energy / total_lost_energy_joule
 
     if aper_loss.sum() > 0:
         
@@ -261,8 +258,8 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
             ap_warm = aper_loss * mask_warm
             ap_cold = aper_loss * ~mask_warm
 
-            ap_warm_pow = ap_warm * POW_TOT * bin_w
-            ap_cold_pow = ap_cold * POW_TOT * bin_w
+            ap_warm_pow = ap_warm * bin_w #/ norm_val
+            ap_cold_pow = ap_cold * bin_w #/ norm_val
 
         else:
             mask_warm = np.array([check_warm_loss(s, warm_regions)
@@ -283,16 +280,12 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
             np.add.at(ap_cold, ap_indices[~mask_warm] - 1, cold_loss[~mask_warm])
 
             
-            warm_loss_pow = warm_loss * POW_TOT * bin_w
-            cold_loss_pow = cold_loss * POW_TOT * bin_w
+            warm_loss_pow = warm_loss * bin_w #/ norm_val
+            cold_loss_pow = cold_loss * bin_w #/ norm_val
 
             np.add.at(ap_warm_pow, ap_indices[mask_warm] - 1, warm_loss_pow[mask_warm])
             np.add.at(ap_cold_pow, ap_indices[~mask_warm] - 1, cold_loss_pow[~mask_warm])
-
-        '''for i in range(len(cold_loss_pow)):
-            if cold_loss_pow[i] != 0:
-                print(cold_loss_pow[i])
-                print(aper_edges[i])'''
+            
     else:
         aper_edges = [0]
         ap_warm = [0]
@@ -301,7 +294,7 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
         ap_cold_pow = [0]
 
     if coll_loss.sum() > 0:
-        coll_pow = coll_loss * POW_TOT/ norm_val # fraction of the injected beam lost in Joule calculated as energy_lost_coll(eV)*(tot_energy_true_beam)(Joule)/(tot_energy_sim_beam(eV))
+        coll_pow = coll_loss / norm_val # fraction of the injected beam lost in Joule calculated as energy_lost_coll(eV)*(tot_energy_true_beam)(Joule)/(tot_energy_sim_beam(eV))
         coll_loss /= (norm_val * coll_length)
         zeros = np.full_like(coll_group.index, 0)  # Zeros to pad the bars
         coll_edges = np.dstack([coll_start, coll_start, coll_end, coll_end]).flatten()
@@ -313,7 +306,7 @@ def prepare_lossmap_values(base_dir, output_dir, s_min, s_max, single_file, norm
         coll_loss = [0]
         coll_pow = [0]    
 
-    return coll_edges, coll_loss, coll_pow, aper_edges, ap_warm, ap_cold, ap_warm_pow, ap_cold_pow, tot_energy
+    return coll_edges, coll_loss, coll_pow, aper_edges, ap_warm, ap_cold, ap_warm_pow, ap_cold_pow, total_sim_lost_energy
 
 def plot_lossmaps(base_dir, output_dir, single_file, output_file, norm='none', tot_energy_full = 0):
     '''
@@ -405,7 +398,7 @@ def plot_lossmaps(base_dir, output_dir, single_file, output_file, norm='none', t
 
     plot_margin = 500
     ax_pow.set_xlim(s_min - plot_margin, s_max + plot_margin)
-    ax_pow.set_ylim(1,2e4)
+    #ax_pow.set_ylim(1,2e4)
 
     ax_pow.yaxis.grid(visible=True, which='major', zorder=0)
     ax_pow.yaxis.grid(visible=True, which='minor', zorder=0)
@@ -609,14 +602,14 @@ def main(base_dir):
     
     df_part = pd.read_hdf(os.path.join(base_dir,"part_merged.hdf"), key = "particles")
     
-    tot_energy_full = 45.6e9*len(df_part[df_part['parent_particle_id'] == df_part['particle_id']])
+    total_sim_energy = BEAM_ENERGY*len(df_part[df_part['parent_particle_id'] == df_part['particle_id']])
 
     single_file = 'merged_lossmap_full.json'
     output_file = 'merged_lossmap_full'
-    tot_energy_lost = plot_lossmaps(output_dir, output_dir, single_file, output_file, norm='tot_energy', tot_energy_full=tot_energy_full)
+    tot_energy_lost = plot_lossmaps(output_dir, output_dir, single_file, output_file, norm='tot_energy', tot_energy_full=total_sim_energy)
 
     with open(os.path.join(output_dir,'loss.txt'), "w") as file:
-        file.write(f"Total Energy: {tot_energy_full}\n")
+        file.write(f"Total Energy: {total_sim_energy}\n")
         file.write(f"Loss total: {tot_energy_lost}\n")
 
         '''for i in turns:

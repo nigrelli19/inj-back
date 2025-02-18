@@ -20,9 +20,9 @@ lossmap:
   aperture_binwidth: 10 # m
 
 injection:
-  start_element: 'qi5.4..7'
-  energy_offset: 0.95e-2
-  x_offset: 0 #m
+  start_element: 'qi4.4..10' #'qi5.4..7' #
+  energy_offset: 0.95e-2 #0.95e-2 
+  x_offset: 0 #m change eergy offset if betatron is != 0
   energy_spread: 0.38e-3
   bunch_length: 4.61e-3
   emittance_x_injection: 0.12e-9 #m
@@ -71,9 +71,9 @@ run:
   #batch_mode: True
   seed: 2000
   turns: 500
-  nparticles: 100
-  max_particles: 200 
-  output_dir : 'dataset/BS+SR_test'
+  nparticles: 500
+  max_particles: 1000 
+  output_dir : 'test_mismatch'
 
 jobsubmission:
   working_directory: 'plots'

@@ -20,7 +20,7 @@ def load_h5_to_dict(file_path):
     
     return data_dict
 
-output_dir = 'dataset/all_inj_2.5k'
+output_dir = 'dataset/all_inj_2.5k_new'
 merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_inject.h5'))
 
 num_particles = int(len(merged_data['x']))

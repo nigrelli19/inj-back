@@ -96,7 +96,7 @@ def prepare_injected_beam(twiss, line, ref_particle, injection_config, num_parti
 
     ## Cycle the line so to start from the injection point qi6.1..16 for zero alfx and dpx
 
-    line.cycle(name_first_element=start_element, inplace=True)
+    #line.cycle(name_first_element=start_element, inplace=True)
 
     # The longitudinal closed orbit needs to be manually supplied for now
 
@@ -117,10 +117,11 @@ def prepare_injected_beam(twiss, line, ref_particle, injection_config, num_parti
         nemitt_x=normalized_emittance_x_injection, nemitt_y=normalized_emittance_y_injection,  
         at_element=start_element
         )
-    
-    #part.start_tracking_at_element = -1
-    part.x = part.x + x_offset_injection
 
+    part.x = part.x + x_offset_injection
+    part.start_tracking_at_element = -1
+    line.cycle(name_first_element='qi3.4..5', inplace=True)
+    
     return part
 
 def install_collimators(line, input_config, nemitt):
@@ -172,13 +173,15 @@ def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor
                             seed=lossmap_config['seed'],
                             bdsim_config_file=input_config['bdsim_config'],
                             relative_energy_cut= 0.165)
+    #batch_mode = False
     line.scattering.enable()
 
     # Track (saving turn-by-turn data)
     for turn in range(num_turns):
         print(f'Start turn {turn}, Survivng particles: {particles._num_active_particles}')
         line.track(particles, num_turns=1)
-        #    line.track(particles, num_turns=1, ele_start=start_element, ele_stop=start_element)          
+        #start_element = 'qi5.4..7'
+        #line.track(particles, num_turns=1, ele_start=start_element, ele_stop=start_element)          
             
         if particles._num_active_particles == 0:
             print(f'All particles lost by turn {turn}, teminating.')
@@ -206,9 +209,11 @@ def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor
     line.cycle(name_first_element='l000017$start', inplace=True)
 
     df_line = line.to_pandas()
-    inj_index= df_line[df_line['name'] =='qi5.4..7'].index[0]
+    #inj_index= df_line[df_line['name'] == start_element].index[0]
+    inj_index= df_line[df_line['name'] == 'qi3.4..5'].index[0]
     max_index = df_line.index.max()
-    s_inj = df_line[df_line['name'] =='qi5.4..7']['s'].values[0]
+    #s_inj = df_line[df_line['name'] == start_element]['s'].values[0]
+    s_inj = df_line[df_line['name'] == 'qi3.4..5']['s'].values[0]
     s_max = df_line['s'].max()
 
     particles = particles.remove_unused_space()  
@@ -245,8 +250,6 @@ def generate_lossmap(line, num_turns, particles, ref_part, input_config, monitor
     _save_particles_hdf(
         LossMap_full.part, lossmap_data=None, filename=output_file)
 
-    return file_path
-
 def insert_monitors(num_turns, rad_line, num_particles, start_element):
     """
     Inserts monitors at specific locations in the line:
@@ -260,14 +263,14 @@ def insert_monitors(num_turns, rad_line, num_particles, start_element):
 
     df_line = rad_line.to_pandas()
 
-    monitors = [monitor.copy() for _ in range(5)]
-    monitor_names = ['monitor_prim_coll', 'monitor_at_ipg', 'monitor_mask', 'monitor_inject' ,'monitor_s_0']
+    monitors = [monitor.copy() for _ in range(3)]
+    monitor_names = ['monitor_prim_coll','monitor_inject', 'monitor_mismatch'] # 'monitor_at_ipg', 'monitor_mask', ,'monitor_s_0']
 
-    s_mask = df_line.loc[df_line['name'] == 'tcr.h.c0.2.b1', 's'].values[0]
+    #s_mask = df_line.loc[df_line['name'] == 'tcr.h.c0.2.b1', 's'].values[0]
     s_prim_coll = df_line.loc[df_line['name'] == 'tcp.h.b1', 's'].values[0]
-    s_exp_ipg = df_line.loc[df_line['name'] == 'ip.4', 's'].values[0]
+    #s_exp_ipg = df_line.loc[df_line['name'] == 'ip.4', 's'].values[0]
     s_inj = df_line.loc[df_line['name'] == start_element, 's'].values[0]
-
+    s_mis = df_line.loc[df_line['name'] == 'qi3.4..5', 's'].values[0]
 
     rad_line.discard_tracker()
 
@@ -275,15 +278,15 @@ def insert_monitors(num_turns, rad_line, num_particles, start_element):
     rad_line.insert_element(monitor_names[0], monitors[0], at_s=s_prim_coll + 0.5)
 
     # Insert monitor at the experietal insertion IPG, also with a small offset
-    rad_line.insert_element(monitor_names[1], monitors[1], at_s=s_exp_ipg - 0.1)
+    #rad_line.insert_element(monitor_names[1], monitors[1], at_s=s_exp_ipg - 0.1)
 
     # Insert monitor at the SR mask, adjusting for a small offset
-    rad_line.insert_element(monitor_names[2], monitors[2], at_s=s_mask - 0.5)
+    #rad_line.insert_element(monitor_names[2], monitors[2], at_s=s_mask - 0.5)
 
     # Insert monitor at the beam starting point, adjusting for a small offset
-    rad_line.insert_element(monitor_names[3], monitors[3], at_s=s_inj+ 0.01)
+    rad_line.insert_element(monitor_names[1], monitors[1], at_s=s_inj+ 0.01)
     
-    rad_line.insert_element(monitor_names[4], monitors[4], at_s=0)
+    rad_line.insert_element(monitor_names[2], monitors[2], at_s=s_mis+0.01)
 
     return monitor_names #, monitors
 
@@ -801,6 +804,7 @@ def main(config_file, submit, merge):
     """
     Main function to run the tracking and plotting with the kicker added to the optics line.
     """
+    start_time = time.time()
     config_dict = load_yaml_config(config_file)
 
     input_config = config_dict['input']
@@ -853,53 +857,42 @@ def main(config_file, submit, merge):
         gamma0 = ref_part.gamma0
         nemitt = np.array([GEMIT_X * (beta0 * gamma0),GEMIT_Y * (beta0 * gamma0)])
         
-        if os.path.exists(SR_coll_line):
-            rad_line = xt.Line.from_json(SR_coll_line)
-            if os.path.exists(twiss_file_path):
-                print(f"Loading Twiss after SR compensation from {twiss_file_path}...")
-                twiss_rad = load_twiss_from_json(twiss_file_path)
-            else:
-                twiss_rad = rad_line.twiss(method='6d', eneloss_and_damping=True)
-                df_twiss_rad = twiss_rad.to_pandas()  
-                save_twiss_to_json(df_twiss_rad, twiss_file_path)  
-                print(f"Twiss parameters after SR compensation saved to {twiss_file_path}.")
-        else:
-            xtrack_line = input_config['xtrack_line']
-            rad_line, twiss_rad = initialize_optics_and_calculate_twiss(xtrack_line, config_dict, nemitt, twiss_file_path)
-            # Uncomment to save the line after processing, does not work properly if you want to use it later to install collimators
-            # LINE IS ALREADY TAPERED NO NEED TO SAVE IT AGAIN
-            # rad_line.to_json(SR_coll_line)
+
+        xtrack_line = input_config['xtrack_line']
+        rad_line, twiss_rad = initialize_optics_and_calculate_twiss(xtrack_line, config_dict, nemitt, twiss_file_path)
+        # Uncomment to save the line after processing, does not work properly if you want to use it later to install collimators
+        # LINE IS ALREADY TAPERED NO NEED TO SAVE IT AGAIN
 
         # Insert monitors
         start_element = injection_config['start_element']
         monitor_names = insert_monitors(num_turns, rad_line, num_particles, start_element)
         
-        if os.path.exists(lossmap_json):
-            #plot_lossmap(lossmap_json, bin_w, output_dir)
-            print('Done!')
-        else:
-            # Install collimators
-            twiss_rad = install_collimators(rad_line, input_config, nemitt)
 
-            # Prepare beam injected from booster
-            particles = prepare_injected_beam(twiss_rad, rad_line, ref_part,injection_config, num_particles, capacity)
-            
-            radiation_mode = config_dict['run']['radiation']
-            beamstrahlung_mode = config_dict['run']['beamstrahlung']
-            bhabha_mode = config_dict['run']['bhabha']
-            
-            configure_tracker_radiation(rad_line, radiation_mode, beamstrahlung_mode, bhabha_mode, for_optics=False)
-            if 'quantum' in (radiation_mode, beamstrahlung_mode, bhabha_mode):
-                # Explicitly initialise the random number generator for the quantum mode
-                seed = config_dict['run']['seed']
-                if seed > 1e5:
-                    raise ValueError('The random seed is too large. Please use a smaller seed (<1e5).')
-                seeds = np.full(particles._capacity, seed) + np.arange(particles._capacity)
-                particles._init_random_number_generator(seeds=seeds)
+        # Install collimators
+        twiss_rad = install_collimators(rad_line, input_config, nemitt)
 
-            lossmap_json = generate_lossmap(rad_line, num_turns, particles, ref_part, input_config, monitor_names, lossmap_config, start_element, output_dir, impact=False)
-            
-            print('Done!')
+        # Prepare beam injected from booster
+        particles = prepare_injected_beam(twiss_rad, rad_line, ref_part,injection_config, num_particles, capacity)
+        
+        radiation_mode = config_dict['run']['radiation']
+        beamstrahlung_mode = config_dict['run']['beamstrahlung']
+        bhabha_mode = config_dict['run']['bhabha']
+        
+        configure_tracker_radiation(rad_line, radiation_mode, beamstrahlung_mode, bhabha_mode, for_optics=False)
+        if 'quantum' in (radiation_mode, beamstrahlung_mode, bhabha_mode):
+            # Explicitly initialise the random number generator for the quantum mode
+            seed = config_dict['run']['seed']
+            if seed > 1e5:
+                raise ValueError('The random seed is too large. Please use a smaller seed (<1e5).')
+            seeds = np.full(particles._capacity, seed) + np.arange(particles._capacity)
+            particles._init_random_number_generator(seeds=seeds)
+
+        generate_lossmap(rad_line, num_turns, particles, ref_part, input_config, monitor_names, lossmap_config, start_element, output_dir, impact=False)
+        
+        end_time = time.time()
+        elapsed_time = end_time - start_time
+        print(f"Simulation time: {elapsed_time:.4f} seconds")
+        print('Done!')
     
 if __name__ == "__main__":
     # Setup command-line argument parser

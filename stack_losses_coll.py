@@ -5,7 +5,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
-from plot_lossmap_xc import load_multiple_lossmaps, collimators_names, POW_TOT, collimators_names_json
+from plot_lossmap_xc import load_multiple_lossmaps,  collimators_names_json
 
 def main(base_dir):
     # Initialize variables

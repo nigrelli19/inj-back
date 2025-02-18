@@ -8,10 +8,11 @@
 /old*/
 /data*/
 /lines_&_coll/
-
+/emit*/
 
 # Not pushing big files
 
+test_chromatic_function.ipynb
 inspect_output.ipynb
 test.ipynb
 generate_lossmap.py
