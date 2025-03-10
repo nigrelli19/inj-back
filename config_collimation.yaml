@@ -1,17 +1,22 @@
 ---
 input:
   #machine: 'fccee'
-  xtrack_line: 'lines_&_coll/tapered_z_b1_thin_2.25pm.seq.json'
-  collimator_file: 'lines_&_coll/CollDB_FCCee_z_common_LSSs_TCS.json'
+  xtrack_line: '/home/gnigrell/WorkDir/lines_colldb/FCCee_z_V25.1_GHC_thin_tapered_2.1pm_TCT_at_TCS_settings.json'
+  collimator_file: 'lines_&_coll/CollDB_FCCee_z_V25.1_GHC_TCT_at_TCS_settings.json' # 'lines_&_coll/CollDB_FCCee_z_V25.1_GHC_TCT_at_TCS_settings_SEPTUM.json' #
   reference_parameters: 'lines_&_coll/reference_parameters.json'
   bdsim_config: 'settings.gmad'
 
 beam:
   particle: 'positron'
+  type:  'injected' # 'circulating' #
   #momentum: 45.6e9 # eV
   #emittance:
   #  x: 6.335825151891213e-05 
   #  y: 1.6955025054356766e-07 
+
+dist:
+  start_element: 'ca1.3' #'ip.1' #
+  sigma_z: 14.6e-3 #0.009 #0 # m 
 
 lossmap:
   weights: 'energy'
@@ -20,13 +25,13 @@ lossmap:
   aperture_binwidth: 10 # m
 
 injection:
-  start_element: 'qi4.4..10' #'qi5.4..7' #
-  energy_offset: 0.95e-2 #0.95e-2 
-  x_offset: 0 #m change eergy offset if betatron is != 0
+  start_element: 'finj.4' #'qi5.4..10' # 'qi5.4..7' 
+  energy_offset: 0.95e-2 
+  x_offset:  0 #m change eergy offset if betatron is != 0
   energy_spread: 0.38e-3
   bunch_length: 4.61e-3
   emittance_x_injection: 0.12e-9 #m
-  emittance_y_injection: 10.0e-12 #m
+  emittance_y_injection: 10.0e-12 #m #2.25e-12 #
   seed_x: 1994 # BETTER TO CHANGE
   seed_y: 1995
   seed_z: 1996
@@ -34,29 +39,29 @@ injection:
 beambeam:
   - 
     at_element: 'ip.1'
-    bunch_intensity: 2.176e11
-    sigma_z: 14.6e-3
+    bunch_intensity: 2.18e11
+    sigma_z: 15.2e-3
     crossing_angle: 15e-3
     other_beam_q0: -1
     n_slices: 300
   -
     at_element: 'ip.3'
-    bunch_intensity: 2.176e11
-    sigma_z: 14.6e-3
+    bunch_intensity: 2.18e11
+    sigma_z: 15.2e-3
     crossing_angle: 15e-3
     other_beam_q0: -1
     n_slices: 300
   -
     at_element: 'ip.5'
-    bunch_intensity: 2.176e11
-    sigma_z: 14.6e-3
+    bunch_intensity: 2.18e11
+    sigma_z: 15.2e-3
     crossing_angle: 15e-3
     other_beam_q0: -1
     n_slices: 300
   -
     at_element: 'ip.7'
-    bunch_intensity: 2.176e11
-    sigma_z: 14.6e-3
+    bunch_intensity: 2.18e11
+    sigma_z: 15.2e-3
     crossing_angle: 15e-3
     other_beam_q0: -1
     n_slices: 300
@@ -70,10 +75,10 @@ run:
   #energy_cut: 0.165
   #batch_mode: True
   seed: 2000
-  turns: 500
-  nparticles: 500
-  max_particles: 1000 
-  output_dir : 'test_mismatch'
+  turns: 500 # 500
+  nparticles: 1000 #1000
+  max_particles: 10000
+  output_dir : 'test_inj_beam'
 
 jobsubmission:
   working_directory: 'plots'

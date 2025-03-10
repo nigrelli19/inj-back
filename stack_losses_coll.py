@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import argparse
 import numpy as np
@@ -7,7 +8,7 @@ import matplotlib.patches as mpatches
 import matplotlib.pyplot as plt
 from plot_lossmap_xc import load_multiple_lossmaps,  collimators_names_json
 
-def main(base_dir):
+def main(base_dir, n_part, percentage=False):
     # Initialize variables
     #turns = np.arange(0, 40)
 
@@ -31,9 +32,18 @@ def main(base_dir):
     
 
     collimators = collimators_names_json('lines_&_coll/CollDB_FCCee_z_common_LSSs_TCS.json')
-    #collimators = collimators_names('lines_&_coll/CollDB_FCCee_z_tridodo572_wiggler_TCTs.dat') #collimators_names('lines_&_coll/CollDB_vertical_aperture_test.dat') #
-    
-    coll_types = ['tcp.h.', 'tcp.v.', 'tcp.hp','tcs.h.','tcs.v.', 'tcs.hp','tct.v', 'tct.h','tcr']  # Collimator types
+
+    coll_types = {
+        'tcp.h.b1': 'tcp.h.b1',
+        'tcp.v.b1': 'tcp.v.b1',
+        'tcp.hp': 'tcp.hp',
+        'tcs.h[12]': 'tcs.h',  # Matches only tcs.h1 and tcs.h2
+        'tcs.v': 'tcs.v',
+        'tcs.hp': 'tcs.hp',
+        'tct.v': 'tct.v',
+        'tct.h': 'tct.h',
+        'tcr': 'tcr'
+    }  # Collimator types
     results = []
 
 
@@ -44,37 +54,48 @@ def main(base_dir):
         print(f"No losses detected. Skipping.")
 
     # Filter for relevant collimators
-    filtered_df = collimator_df[collimator_df['name'].isin(collimators)]
+    filtered_df = collimator_df.query("name in @collimators")
+    #filtered_df = collimator_df[collimator_df['name'].isin(collimators)]
     
     if filtered_df.empty:
         print(f"No losses detected in relevant collimators for turn. Skipping.")
-    
-    # Group losses by collimator type
-    for coll_type in coll_types:
+    else:
+        # Count total collimators of each type using the full collimators list
+        collimator_counts = {category: sum(bool(re.match(pattern, name)) for name in collimators) 
+                             for pattern, category in coll_types.items()}
 
-        coll_filtered_df = filtered_df[filtered_df['name'].str.contains(coll_type, case=False)]
-        
-        if coll_filtered_df.empty:
-            print(f"No losses detected for collimator type {coll_type.upper()}.")
+        # Group losses by collimator type
+        for pattern, category in coll_types.items():
+            coll_filtered_df = filtered_df[filtered_df['name'].str.match(pattern, case=False, na=False)]
+            num_collimators = collimator_counts[category]  # Get count from full collimator list
+
+            if coll_filtered_df.empty or num_collimators == 0:
+                print(f"No losses detected for collimator type {category.upper()}.")
+                results.append({
+                    "Collimator Type": category.upper(),
+                    "Total Loss": 0.0,
+                    "Normalized Loss": 0.0
+                })
+                continue
+
+            coll_group = coll_filtered_df.groupby('name').agg(
+                total_n=('n', 'sum'),
+                s=('s', 'mean'),
+                length=('length', 'mean')
+            ).reset_index()
+
+            if percentage:
+                total_loss = coll_group['total_n'].sum() * 100 / norm
+                total_loss /= num_collimators  # Normalize by total number of collimators
+            else:
+                norm = 45.6e9 * n_part / 17.5e4
+                total_loss = coll_group['total_n'].sum() / norm
+
             results.append({
-                "Collimator Type": coll_type.upper(),
-                "Total Loss": 0.0
+                "Collimator Type": category.upper(),
+                "Total Loss": total_loss,
+                "Normalized Loss": total_loss
             })
-            continue
-
-        coll_group = coll_filtered_df.groupby('name').agg(
-            total_n=('n', 'sum'),
-            s=('s', 'mean'),
-            length=('length', 'mean')
-        ).reset_index()
-        
-        # Calculate power lost and append results
-        # total_loss = coll_group['total_n'].sum() * POW_TOT / norm
-        total_loss = coll_group['total_n'].sum() * 100/ norm
-        results.append({
-            "Collimator Type": coll_type.upper(),
-            "Total Loss": total_loss
-        })
 
     # Convert results to DataFrame
     df_results = pd.DataFrame(results)
@@ -92,7 +113,7 @@ def main(base_dir):
     collimator_types = df_results['Collimator Type']
 
     # Create bar plot
-    plt.bar(collimator_types, df_results['Total Loss'], color=colors)
+    plt.bar(collimator_types, df_results['Normalized Loss'], color=colors)
 
     # Create legend handles
     legend_patches = [mpatches.Patch(color=colors[i], label=collimator_types.iloc[i]) for i in range(num_bars)]
@@ -100,7 +121,10 @@ def main(base_dir):
 
     # Formatting
     plt.xlabel("Collimator Type", fontsize=14)
-    plt.ylabel("Total Loss [%]", fontsize=14)
+    if percentage:
+        plt.ylabel("Total Loss [%]", fontsize=14)
+    else:
+        plt.ylabel("Total Loss [J]", fontsize=14)
     plt.title("Total Loss per Collimator Type", fontsize=16)
     plt.xticks(rotation=45, ha="right")  # Rotate labels for better readability
     plt.grid(axis="y", linestyle="--", alpha=0.7)
@@ -113,6 +137,8 @@ def main(base_dir):
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description='Track particles with a kicker and plot the results.')
     parser.add_argument('--base_dir', type=str, required=True, help='Path to lossmap files, for ex.: dataset/new_vertical/3_turns/ver_phase_90_3turns.')
+    parser.add_argument('--n_part', type=int, required=True, help='Number of simulated particles')
+    parser.add_argument('--percentage', action='store_true', help='Select True to plot percentage of energy lost in collimators')
     args = parser.parse_args()
     # Call the main function with parsed arguments
-    main(args.base_dir)
+    main(args.base_dir, args.n_part, args.percentage)

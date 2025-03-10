@@ -9,8 +9,8 @@ import json
 import h5py
 import scipy
 
-GEMIT_X = 0.70e-9
-GEMIT_Y = 2.25e-12
+GEMIT_X = 0.71e-9
+GEMIT_Y = 2.1e-12
 
 def load_h5_to_dict(file_path):
     data_dict = {}
@@ -67,10 +67,11 @@ def normalized_coordiantes(twiss, track_particle, monitor_name = '0'):
     #print(np.sqrt(betx * GEMIT_X))
     return X_norm, Y_norm, Px_norm, Py_norm
 
-output_dir = 'test_mismatch'  #'test_DA_1'
+output_dir = 'test_circ_with_coll'  #'test_DA_1'
 #df_part = pd.read_hdf(os.path.join(output_dir,"part.hdf"), key = "particles")
 #merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_prim_coll.h5'))
 merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_inject.h5'))
+#merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_kick2.h5'))
 
 num_particles = int(len(merged_data['x']))
 num_turns = int(len(merged_data['x'].T))
@@ -79,15 +80,18 @@ Y = 1000*merged_data['y'].reshape(num_particles, num_turns).T
 PX = merged_data['px'].reshape(num_particles, num_turns).T
 PY = merged_data['py'].reshape(num_particles, num_turns).T
 
+twiss_dir = 'test_circ_with_coll'
+twiss = pd.read_json(os.path.join(twiss_dir,f'twiss_params.json'), orient='split')
 
-twiss = pd.read_json(os.path.join(output_dir,f'twiss_params.json'), orient='split')
-X_norm, Y_norm, Px_norm, Py_norm = normalized_coordiantes(twiss, merged_data, 'qi4.4..10')
+X_norm, Y_norm, Px_norm, Py_norm = normalized_coordiantes(twiss, merged_data, 'finj.4')
+#X_norm, Y_norm, Px_norm, Py_norm = normalized_coordiantes(twiss, merged_data, 'monitor_kick2')
 #X_norm, Y_norm, Px_norm, Py_norm = normalized_coordiantes(twiss, merged_data, 'qi5.4..7')
 #X_norm, Y_norm, Px_norm, Py_norm = normalized_coordiantes(twiss, merged_data, 'tcp.h.b1')
 
 #turns = range(0,num_turns)  
 #turns = range(0, 20)
-turns = [0, 50, 100, 150, 200, 250,  300, 350,  400, 450, 499]
+#turns = [0, 8,9,10,11,50, 100, 150, 200, 250,  300, 350,  400, 450, 499]
+turns = [0, 9, 10, 11, 12, 13, 14, 15,50 ]
 
 # Set up the figure
 fig, ax = plt.subplots(figsize=(6, 6))
@@ -97,13 +101,13 @@ ax.set_ylim(-2, 2)
 ax.set_xlabel(r'x [mm]')
 ax.set_ylabel(r'y [mm]')
 
-ax.set_xlim(-30, 30)
-ax.set_ylim(-35, 35)
-ax.set_xlabel(r'y [$\sigma$]')
-ax.set_ylabel(r'py [$\sigma$]')
-#ax.set_xlabel(r'x [$\sigma$]')
+ax.set_xlim(-50, 50)
+ax.set_ylim(-50, 50)
+#ax.set_xlabel(r'y [$\sigma$]')
+#ax.set_ylabel(r'py [$\sigma$]')
+ax.set_xlabel(r'x [$\sigma$]')
 #ax.set_ylabel(r'px [$\sigma$]')
-#ax.set_ylabel(r'y [$\sigma$]')
+ax.set_ylabel(r'y [$\sigma$]')
 
 ax.grid(True, linestyle='--', alpha=0.5)
 scat = ax.scatter([], [], s=0.5)
@@ -113,12 +117,12 @@ for turn in turns:
     print(f"Saving frame for turn {turn}")
     ax.set_title(f"Turn {turn}")
     #scat.set_offsets(np.c_[X[turn], Y[turn]])
-    #scat.set_offsets(np.c_[X_norm.T[turn], Y_norm.T[turn]])
-    scat.set_offsets(np.c_[Y_norm.T[turn], Py_norm.T[turn]])
+    scat.set_offsets(np.c_[X_norm.T[turn], Y_norm.T[turn]])
+    #scat.set_offsets(np.c_[Y_norm.T[turn], Py_norm.T[turn]])
     #scat.set_offsets(np.c_[X_norm.T[turn], Px_norm.T[turn]])
     
     # Save the current frame as a PNG
-    plt.savefig(os.path.join(output_dir,f"particle_turn_{turn:03d}.png"), dpi=300)
+    plt.savefig(os.path.join(output_dir,f"particle_turn_{turn:03d}_inj.png"), dpi=300)
 
 plt.close(fig)
 print("All frames saved as PNG files.")

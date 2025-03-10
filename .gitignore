@@ -9,6 +9,8 @@
 /data*/
 /lines_&_coll/
 /emit*/
+/V2*/
+/collider*/
 
 # Not pushing big files
 
@@ -17,4 +19,5 @@ inspect_output.ipynb
 test.ipynb
 generate_lossmap.py
 plot_lossmap_hdf.py
-
+XcollApertureMeas.py
+test_septum.ipynb

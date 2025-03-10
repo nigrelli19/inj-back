@@ -20,19 +20,19 @@ def load_h5_to_dict(file_path):
     
     return data_dict
 
-output_dir = 'dataset/all_inj_2.5k_new'
+output_dir = 'V25.1_GHC/all_inj2.5k_NEW'
 merged_data = load_h5_to_dict(os.path.join(output_dir,'merged_data_monitor_inject.h5'))
 
 num_particles = int(len(merged_data['x']))
 num_turns = int(len(merged_data['x'].T))
-X = merged_data['x'].reshape(num_particles, num_turns).T
-Y = merged_data['y'].reshape(num_particles, num_turns).T
-PX = merged_data['px'].reshape(num_particles, num_turns).T
-PY = merged_data['py'].reshape(num_particles, num_turns).T
+#X = merged_data['x'].reshape(num_particles, num_turns).T
+#Y = merged_data['y'].reshape(num_particles, num_turns).T
+#PX = merged_data['px'].reshape(num_particles, num_turns).T
+#PY = merged_data['py'].reshape(num_particles, num_turns).T
 zeta = merged_data['zeta'].reshape(num_particles, num_turns).T
 delta = merged_data['delta'].reshape(num_particles, num_turns).T
 
-line =xt.Line.from_json('lines_&_coll/tapered_z_b1_thin_2.25pm.seq.json')
+line =xt.Line.from_json('../lines_colldb/FCCee_z_V25.1_GHC_thin_tapered_2.1pm_TCT_at_TCS_settings.json')
 df_line = line.to_pandas()
 tw = line.twiss()
 
@@ -51,7 +51,7 @@ H_ufp = a1*(np.sin(phi_s_rad)*(2*phi_s_rad - np.pi) + np.cos(phi_s_rad))
 H_z_usp = lambda qq, pqq: a1*(np.sin(phi_s_rad)*a2*qq - np.cos(phi_s_rad-a2*qq)) - 0.5*tw.slip_factor*pqq**2 - H_ufp
 
 qq_vals = np.linspace(-0.2, 0.4, 500)  # Longitudinal displacement
-pqq_vals = np.linspace(-0.017722, 0.017722, 500)  # Momentum deviation (LEAVE L=IT LIKE THIS TO SEE THE SEPARATRIX)
+pqq_vals = np.linspace(-0.020044, 0.020044, 500)  # Momentum deviation(LEAVE L=IT LIKE THIS TO SEE THE SEPARATRIX)
 QQ, PQQ = np.meshgrid(qq_vals, pqq_vals)
 
 # Compute Hamiltonian values
